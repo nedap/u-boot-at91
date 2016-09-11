@@ -105,12 +105,18 @@ static __u8 num_of_fats;
 /*
  * Write fat buffer into block device
  */
-static int flush_fat_buffer(fsdata *mydata)
+static int flush_dirty_fat_buffer(fsdata *mydata)
 {
 	int getsize = FATBUFBLOCKS;
 	__u32 fatlength = mydata->fatlength;
 	__u8 *bufptr = mydata->fatbuf;
 	__u32 startblock = mydata->fatbufnum * FATBUFBLOCKS;
+
+	debug("debug: evicting %d, dirty: %d\n", mydata->fatbufnum,
+	      (int)mydata->fat_dirty);
+
+	if ((!mydata->fat_dirty) || (mydata->fatbufnum == -1))
+		return 0;
 
 	startblock += mydata->fat_sect;
 
@@ -131,6 +137,7 @@ static int flush_fat_buffer(fsdata *mydata)
 			return -1;
 		}
 	}
+	mydata->fat_dirty = 0;
 
 	return 0;
 }
@@ -188,10 +195,8 @@ static __u32 get_fatent_value(fsdata *mydata, __u32 entry)
 		startblock += mydata->fat_sect;	/* Offset from start of disk */
 
 		/* Write back the fatbuf to the disk */
-		if (mydata->fatbufnum != -1) {
-			if (flush_fat_buffer(mydata) < 0)
-				return -1;
-		}
+		if (flush_dirty_fat_buffer(mydata) < 0)
+			return -1;
 
 		if (disk_read(startblock, getsize, bufptr) < 0) {
 			debug("Error reading FAT blocks\n");
@@ -498,10 +503,8 @@ static int set_fatent_value(fsdata *mydata, __u32 entry, __u32 entry_value)
 		if (getsize > fatlength)
 			getsize = fatlength;
 
-		if (mydata->fatbufnum != -1) {
-			if (flush_fat_buffer(mydata) < 0)
-				return -1;
-		}
+		if (flush_dirty_fat_buffer(mydata) < 0)
+			return -1;
 
 		if (disk_read(startblock, getsize, bufptr) < 0) {
 			debug("Error reading FAT blocks\n");
@@ -509,6 +512,9 @@ static int set_fatent_value(fsdata *mydata, __u32 entry, __u32 entry_value)
 		}
 		mydata->fatbufnum = bufnum;
 	}
+
+	/* Mark as dirty */
+	mydata->fat_dirty = 1;
 
 	/* Set the actual entry */
 	switch (mydata->fatsize) {
@@ -649,7 +655,7 @@ static void flush_dir_table(fsdata *mydata, dir_entry **dentptr)
 
 	dir_curclust = dir_newclust;
 
-	if (flush_fat_buffer(mydata) < 0)
+	if (flush_dirty_fat_buffer(mydata) < 0)
 		return;
 
 	memset(get_dentfromdir_block, 0x00,
@@ -679,7 +685,7 @@ static int clear_fatent(fsdata *mydata, __u32 entry)
 	}
 
 	/* Flush fat buffer */
-	if (flush_fat_buffer(mydata) < 0)
+	if (flush_dirty_fat_buffer(mydata) < 0)
 		return -1;
 
 	return 0;
@@ -1015,6 +1021,7 @@ static int do_fat_write(const char *filename, void *buffer, loff_t size,
 	}
 
 	mydata->fatbufnum = -1;
+	mydata->fat_dirty = 0;
 	mydata->fatbuf = memalign(ARCH_DMA_MINALIGN, FATBUFSIZE);
 	if (mydata->fatbuf == NULL) {
 		debug("Error: allocating memory\n");
@@ -1115,7 +1122,7 @@ static int do_fat_write(const char *filename, void *buffer, loff_t size,
 	debug("attempt to write 0x%llx bytes\n", *actwrite);
 
 	/* Flush fat buffer */
-	ret = flush_fat_buffer(mydata);
+	ret = flush_dirty_fat_buffer(mydata);
 	if (ret) {
 		printf("Error: flush fat buffer\n");
 		goto exit;
