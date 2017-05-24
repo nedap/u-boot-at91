@@ -186,11 +186,29 @@
 #define CONFIG_CMDLINE_EDITING
 #define CONFIG_AUTO_COMPLETE
 #define CONFIG_SYS_HUSH_PARSER
+#define CONFIG_CMD_UBI
+#define CONFIG_CMD_UBIFS
+#define CONFIG_RBTREE
+#define CONFIG_MTD_DEVICE
+#define CONFIG_MTD_PARTITIONS
+#define CONFIG_CMD_MTDPARTS
+#define CONFIG_LZO
+#define MTDIDS_DEFAULT			"nand0=atmel_nand"
+#define MTDPARTS_DEFAULT		"mtdparts=atmel_nand:128K(bootstrap)ro,256K(u-boot-env),640K(u-boot)ro,6M(kernel)ro,-(rootfs)"
+#define CONFIG_EXTRA_ENV_SETTINGS	\
+	"mtdids="MTDIDS_DEFAULT"\0"	\
+	"mtdparts="MTDPARTS_DEFAULT"\0"
+#define CONFIG_BOOTCOMMAND		\
+	"ubi part rootfs && "		\
+	"ubifsmount ubi0 && " \
+	"ubifsload 70008000 /boot/uImage && " \
+	"setenv bootargs panic=1 quiet ${mtdparts} root=ubi0 rw ubi.mtd=4,512 rootfstype=ubifs && " \
+	"bootm 70008000"
 
 /*
  * Size of malloc() pool
  */
-#define CONFIG_SYS_MALLOC_LEN		ROUND(3 * CONFIG_ENV_SIZE + 128*1024, 0x1000)
+#define CONFIG_SYS_MALLOC_LEN		(8 * 1024 * 1024)	/* 8 MiB for malloc() */
 
 /* Defines for SPL */
 #define CONFIG_SPL_FRAMEWORK
