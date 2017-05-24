@@ -56,7 +56,7 @@ static int do_spi_xfer(int bus, int cs)
 	if (ret)
 		return ret;
 #else
-	slave = spi_setup_slave(bus, cs, 1000000, mode);
+	slave = spi_setup_slave(bus, cs, 50000, mode);
 	if (!slave) {
 		printf("Invalid device %d:%d\n", bus, cs);
 		return -EINVAL;
