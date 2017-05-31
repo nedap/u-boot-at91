@@ -18,6 +18,11 @@
 #include <lcd.h>
 #include <linux/mtd/nand.h>
 #include <atmel_lcdc.h>
+#include <atmel_mci.h>
+#if defined(CONFIG_RESET_PHY_R) && defined(CONFIG_MACB)
+#include <net.h>
+#endif
+#include <netdev.h>
 
 DECLARE_GLOBAL_DATA_PTR;
 
@@ -142,6 +147,39 @@ static void at91sam9m10g45ek_usb_hw_init(void)
 
 	at91_set_gpio_output(AT91_PIN_PD1, 0);
 	at91_set_gpio_output(AT91_PIN_PD3, 0);
+}
+#endif
+
+#ifdef CONFIG_MACB
+static void at91sam9m10g45ek_macb_hw_init(void)
+{
+	struct at91_port *pioa = (struct at91_port *)ATMEL_BASE_PIOA;
+
+	at91_periph_clk_enable(ATMEL_ID_EMAC);
+
+	/*
+	 * Disable pull-up on:
+	 *      RXDV (PA15) => PHY normal mode (not Test mode)
+	 *      ERX0 (PA12) => PHY ADDR0
+	 *      ERX1 (PA13) => PHY ADDR1 => PHYADDR = 0x0
+	 *
+	 * PHY has internal pull-down
+	 */
+	writel(pin_to_mask(AT91_PIN_PA15) |
+	       pin_to_mask(AT91_PIN_PA12) |
+	       pin_to_mask(AT91_PIN_PA13),
+	       &pioa->pudr);
+
+	at91_phy_reset();
+
+	/* Re-enable pull-up */
+	writel(pin_to_mask(AT91_PIN_PA15) |
+	       pin_to_mask(AT91_PIN_PA12) |
+	       pin_to_mask(AT91_PIN_PA13),
+	       &pioa->puer);
+
+	/* And the pins. */
+	at91_macb_hw_init();
 }
 #endif
 
@@ -278,6 +316,15 @@ int board_init(void)
 #ifdef CONFIG_CMD_USB
 	at91sam9m10g45ek_usb_hw_init();
 #endif
+#ifdef CONFIG_HAS_DATAFLASH
+	at91_spi0_hw_init(1 << 0);
+#endif
+#ifdef CONFIG_ATMEL_SPI
+	at91_spi1_hw_init(1 << 2 | 1 << 3);
+#endif
+#ifdef CONFIG_MACB
+	at91sam9m10g45ek_macb_hw_init();
+#endif
 #ifdef CONFIG_LCD
 	at91sam9m10g45ek_lcd_hw_init();
 #endif
@@ -296,3 +343,34 @@ void reset_phy(void)
 {
 }
 #endif
+
+int board_eth_init(bd_t *bis)
+{
+	int rc = 0;
+#ifdef CONFIG_MACB
+	rc = macb_eth_initialize(0, (void *)ATMEL_BASE_EMAC, 0x00);
+#endif
+	return rc;
+}
+
+/* SPI chip select control */
+#ifdef CONFIG_ATMEL_SPI
+#include <spi.h>
+
+int spi_cs_is_valid(unsigned int bus, unsigned int cs)
+{
+	return bus == 1 && (cs == 2 || cs == 3);
+}
+
+void spi_cs_activate(struct spi_slave *slave)
+{
+	if (slave->cs == 2) at91_set_gpio_output(AT91_PIN_PD18, 0);
+	else at91_set_gpio_output(AT91_PIN_PD19, 0);
+}
+
+void spi_cs_deactivate(struct spi_slave *slave)
+{
+	if (slave->cs == 2) at91_set_gpio_output(AT91_PIN_PD18, 1);
+	else at91_set_gpio_output(AT91_PIN_PD19, 1);
+}
+#endif /* CONFIG_ATMEL_SPI */
