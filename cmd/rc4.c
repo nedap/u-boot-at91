@@ -95,13 +95,13 @@ void rc4_crypt(rc4_state *state, u_char *buf, long buflen)
 int cmd_rc4 (cmd_tbl_t * cmdtp, int flag, int argc, char * const argv[])
 {
 	unsigned long size = 0;
-	unsigned long addr;
+	u_char *addr;
 	rc4_state state;
 	u_char key[] = {0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f};
 
 	if (argc != 3) return cmd_usage(cmdtp);
 
-	addr = simple_strtoul(argv[1], NULL, 16);
+	addr = (u_char *)simple_strtoul(argv[1], NULL, 16);
 	size = simple_strtoul(argv[2], NULL, 16);
 
 	rc4_init(&state, key, sizeof(key));
