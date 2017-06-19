@@ -34,6 +34,7 @@ struct spi_slave *spi_setup_slave(unsigned int bus, unsigned int cs,
 	struct atmel_spi_slave	*as;
 	unsigned int		scbr;
 	u32			csrx;
+	u32			dlybct = 0;
 	void			*regs;
 
 	if (!spi_cs_is_valid(bus, cs))
@@ -64,9 +65,14 @@ struct spi_slave *spi_setup_slave(unsigned int bus, unsigned int cs,
 
 
 	scbr = (get_spi_clk_rate(bus) + max_hz - 1) / max_hz;
-	if (scbr > ATMEL_SPI_CSRx_SCBR_MAX)
-		/* Too low max SCK rate */
-		return NULL;
+	if (scbr > ATMEL_SPI_CSRx_SCBR_MAX) {
+		dlybct = scbr >> 5;
+		scbr = ATMEL_SPI_CSRx_SCBR_MAX;
+		if (dlybct >= (1 << 8)) {
+			/* Too low max SCK rate */
+			return NULL;
+		}
+	}
 	if (scbr < 1)
 		scbr = 1;
 
@@ -76,6 +82,7 @@ struct spi_slave *spi_setup_slave(unsigned int bus, unsigned int cs,
 		csrx |= ATMEL_SPI_CSRx_NCPHA;
 	if (mode & SPI_CPOL)
 		csrx |= ATMEL_SPI_CSRx_CPOL;
+	csrx |= ATMEL_SPI_CSRx_DLYBCT(dlybct);
 
 	as = spi_alloc_slave(struct atmel_spi_slave, bus, cs);
 	if (!as)

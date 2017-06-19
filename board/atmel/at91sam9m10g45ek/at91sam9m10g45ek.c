@@ -321,7 +321,7 @@ int board_init(void)
 	at91_spi0_hw_init(1 << 0);
 #endif
 #ifdef CONFIG_ATMEL_SPI
-	at91_spi0_hw_init(1 << 4);
+	at91_spi1_hw_init(1 << 2 | 1 << 3);
 #endif
 #ifdef CONFIG_MACB
 	at91sam9m10g45ek_macb_hw_init();
@@ -360,32 +360,18 @@ int board_eth_init(bd_t *bis)
 
 int spi_cs_is_valid(unsigned int bus, unsigned int cs)
 {
-	return bus == 0 && cs < 2;
+	return bus == 1 && (cs == 2 || cs == 3);
 }
 
 void spi_cs_activate(struct spi_slave *slave)
 {
-	switch(slave->cs) {
-		case 1:
-			at91_set_gpio_output(AT91_PIN_PB18, 0);
-			break;
-		case 0:
-		default:
-			at91_set_gpio_output(AT91_PIN_PB3, 0);
-			break;
-	}
+	if (slave->cs == 2) at91_set_gpio_output(AT91_PIN_PD18, 0);
+	else at91_set_gpio_output(AT91_PIN_PD19, 0);
 }
 
 void spi_cs_deactivate(struct spi_slave *slave)
 {
-	switch(slave->cs) {
-		case 1:
-			at91_set_gpio_output(AT91_PIN_PB18, 1);
-			break;
-		case 0:
-		default:
-			at91_set_gpio_output(AT91_PIN_PB3, 1);
-		break;
-	}
+	if (slave->cs == 2) at91_set_gpio_output(AT91_PIN_PD18, 1);
+	else at91_set_gpio_output(AT91_PIN_PD19, 1);
 }
 #endif /* CONFIG_ATMEL_SPI */
