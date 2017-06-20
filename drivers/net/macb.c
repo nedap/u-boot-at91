@@ -184,7 +184,7 @@ static u16 macb_mdio_read(struct macb_device *macb, u8 reg)
 	macb_writel(macb, NCR, netctl);
 
 	return MACB_BFEXT(DATA, frame);
-#endif
+#else
 	// Since the MDIO bus is not connected on the renos board, we will fake it
 	// The registers have fixed values since the mac is directly connected to the onboard micrel switch
 	switch (reg) {
@@ -200,6 +200,7 @@ static u16 macb_mdio_read(struct macb_device *macb, u8 reg)
 		case 0x0A: return 0;			// 1000BASE-T status
 		default: return 0xFFFF;
 	}
+#endif
 }
 
 void __weak arch_get_mdio_control(const char *name)
