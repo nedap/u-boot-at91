@@ -374,3 +374,115 @@ void spi_cs_deactivate(struct spi_slave *slave)
 	else at91_set_gpio_output(AT91_PIN_PD19, 1);
 }
 #endif /* CONFIG_ATMEL_SPI */
+
+#ifdef CONFIG_CMD_FPGA
+#include <spartan3.h>
+int fpga_pre_config_fn(int cookie)
+{
+	at91_set_pio_output(CONFIG_SYS_FPGA_DOUT_PIN, 0);
+	at91_set_pio_output(CONFIG_SYS_FPGA_CLK_PIN, 0);
+	at91_set_pio_output(CONFIG_SYS_FPGA_PROGB_PIN, 1);
+	at91_set_pio_input(CONFIG_SYS_FPGA_INITB_PIN, 0);
+	at91_set_pio_input(CONFIG_SYS_FPGA_DONE_PIN, 0);
+	return FPGA_SUCCESS;
+}
+
+int fpga_progb_fn(int assert, int flush, int cookie)
+{
+	at91_set_pio_output(CONFIG_SYS_FPGA_PROGB_PIN, 1 - assert);
+	return assert;
+}
+
+int fpga_clk_fn(int assert, int flush, int cookie)
+{
+	at91_set_pio_output(CONFIG_SYS_FPGA_CLK_PIN, assert);
+	return assert;
+}
+
+int fpga_initb_fn(int cookie)
+{
+	return 1 - at91_get_pio_value(CONFIG_SYS_FPGA_INITB_PIN);
+}
+
+int fpga_done_fn(int cookie)
+{
+	return at91_get_pio_value(CONFIG_SYS_FPGA_DONE_PIN);
+}
+
+int fpga_dout_fn(int assert, int flush, int cookie)
+{
+	at91_set_pio_output(CONFIG_SYS_FPGA_DOUT_PIN, assert);
+	return assert;
+}
+
+int fpga_fastwr_fn(void *buf, size_t len, int flush, int cookie)
+{
+	size_t i;
+	int j;
+	unsigned char *p = (unsigned char *)buf;
+	unsigned char c;
+
+	for (i = 0; i < len; ++i) {
+		c = *(p++);
+		for (j = 0x80; j != 0x00; j >>= 1) {
+			at91_set_pio_output(CONFIG_SYS_FPGA_DOUT_PIN, (c & j) ? 1 : 0);
+			at91_set_pio_output(CONFIG_SYS_FPGA_CLK_PIN, 0);
+			at91_set_pio_output(CONFIG_SYS_FPGA_CLK_PIN, 1);
+		}
+	}
+
+	return FPGA_SUCCESS;
+}
+
+xilinx_spartan3_slave_serial_fns fpga_fns = {
+	fpga_pre_config_fn,
+	fpga_progb_fn,
+	fpga_clk_fn,
+	fpga_initb_fn,
+	fpga_done_fn,
+	fpga_dout_fn,
+	0,
+	fpga_fastwr_fn
+};
+
+xilinx_desc spartan3 = {
+	xilinx_spartan3,
+	slave_serial,
+	588877,				// XILINX_XC3S1400A_SIZE
+	(void *) &fpga_fns,
+	0,
+};
+
+static void nedap9g45_fpga_hw_init(void)
+{
+	fpga_init();
+	fpga_add(fpga_xilinx, &spartan3);
+}
+#endif /* CONFIG_CMD_FPGA */
+
+#ifdef CONFIG_CMD_FPGA
+#include "atmel_usart2.h"
+int serial2_init(void)
+{
+	at91_pmc_t *pmc = (at91_pmc_t *) ATMEL_BASE_PMC;
+
+	at91_set_a_periph(AT91_PIO_PORTB, 6, 1);
+	at91_set_a_periph(AT91_PIO_PORTB, 7, 0);
+	writel(1 << ATMEL_ID_USART2, &pmc->pcer);
+
+	usart2_writel(CR, USART2_BIT(RSTRX) | USART2_BIT(RSTTX));
+
+	unsigned long divisor = (get_usart_clk_rate(USART2_ID) / CONFIG_FPGA_BAUDRATE) / 16;
+	usart2_writel(BRGR, USART2_BF(CD, divisor));
+
+	usart2_writel(CR, USART2_BIT(RXEN) | USART2_BIT(TXEN));
+
+	usart2_writel(MR, (USART2_BF(USART_MODE, USART2_USART_MODE_NORMAL)
+			   | USART2_BF(USCLKS, USART2_USCLKS_MCK)
+			   | USART2_BF(CHRL, USART2_CHRL_8)
+			   | USART2_BF(PAR, USART2_PAR_NONE)
+			   | USART2_BF(NBSTOP, USART2_NBSTOP_1)));
+
+	return 0;
+}
+#endif /* CONFIG_CMD_FPGA */
