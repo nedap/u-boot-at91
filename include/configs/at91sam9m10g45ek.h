@@ -125,6 +125,7 @@
 
 /* Ethernet */
 #define CONFIG_MACB
+#define CONFIG_MACB_NEDAP
 #define CONFIG_RMII
 #define CONFIG_NET_RETRY_COUNT		20
 #define CONFIG_RESET_PHY_R
@@ -144,8 +145,8 @@
 #ifdef CONFIG_SYS_USE_NANDFLASH
 /* bootstrap + u-boot + env in nandflash */
 #define CONFIG_ENV_IS_IN_NAND
-#define CONFIG_ENV_OFFSET		0xc0000
-#define CONFIG_ENV_OFFSET_REDUND	0x100000
+#define CONFIG_ENV_OFFSET		0x20000
+#define CONFIG_ENV_OFFSET_REDUND	0x40000
 #define CONFIG_ENV_SIZE			0x20000
 
 #define CONFIG_BOOTCOMMAND						\

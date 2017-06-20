@@ -128,6 +128,7 @@ static int gem_is_gigabit_capable(struct macb_device *macb)
 
 static void macb_mdio_write(struct macb_device *macb, u8 reg, u16 value)
 {
+#ifndef CONFIG_MACB_NEDAP
 	unsigned long netctl;
 	unsigned long netstat;
 	unsigned long frame;
@@ -151,10 +152,12 @@ static void macb_mdio_write(struct macb_device *macb, u8 reg, u16 value)
 	netctl = macb_readl(macb, NCR);
 	netctl &= ~MACB_BIT(MPE);
 	macb_writel(macb, NCR, netctl);
+#endif
 }
 
 static u16 macb_mdio_read(struct macb_device *macb, u8 reg)
 {
+#ifndef CONFIG_MACB_NEDAP
 	unsigned long netctl;
 	unsigned long netstat;
 	unsigned long frame;
@@ -181,6 +184,23 @@ static u16 macb_mdio_read(struct macb_device *macb, u8 reg)
 	macb_writel(macb, NCR, netctl);
 
 	return MACB_BFEXT(DATA, frame);
+#else
+	// Since the MDIO bus is not connected on the renos board, we will fake it
+	// The registers have fixed values since the mac is directly connected to the onboard micrel switch
+	switch (reg) {
+		case 0x00: return BMCR_FULLDPLX		// Basic mode control register
+			| BMCR_SPEED100;
+		case 0x01: return BMSR_ANEGCAPABLE	// Basic mode status register
+			| BMSR_100FULL
+			| BMSR_LSTATUS
+			| BMSR_ANEGCOMPLETE;
+		case 0x02: return 0x0022;		// PHYS ID 1 (micrel values)
+		case 0x03: return 0x1430;		// PHYS ID 2 (micrel values)
+		case 0x05: return LPA_100FULL;		// Link partner ability reg
+		case 0x0A: return 0;			// 1000BASE-T status
+		default: return 0xFFFF;
+	}
+#endif
 }
 
 void __weak arch_get_mdio_control(const char *name)
