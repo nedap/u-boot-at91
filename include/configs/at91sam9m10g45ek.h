@@ -32,16 +32,16 @@
 #define CONFIG_ATMEL_LEGACY		/* required until (g)pio is fixed */
 
 /* LCD */
-#define LCD_BPP				LCD_COLOR8
-#define CONFIG_LCD_LOGO
+#undef LCD_BPP				/* LCD_COLOR8 */
+#undef CONFIG_LCD_LOGO
 #undef LCD_TEST_PATTERN
-#define CONFIG_LCD_INFO
-#define CONFIG_LCD_INFO_BELOW_LOGO
-#define CONFIG_SYS_WHITE_ON_BLACK
-#define CONFIG_ATMEL_LCD
-#define CONFIG_ATMEL_LCD_RGB565
+#undef CONFIG_LCD_INFO
+#undef CONFIG_LCD_INFO_BELOW_LOGO
+#undef CONFIG_SYS_WHITE_ON_BLACK
+#undef CONFIG_ATMEL_LCD
+#undef CONFIG_ATMEL_LCD_RGB565
 /* board specific(not enough SRAM) */
-#define CONFIG_AT91SAM9G45_LCD_BASE		0x73E00000
+#undef CONFIG_AT91SAM9G45_LCD_BASE		/* 0x73E00000 */
 
 /*
  * BOOTP options
@@ -77,7 +77,6 @@
 #define CONFIG_SYS_NAND_MASK_CLE		(1 << 22)
 #define CONFIG_SYS_NAND_ENABLE_PIN		AT91_PIN_PC14
 #define CONFIG_SYS_NAND_READY_PIN		AT91_PIN_PC8
-
 #endif
 
 /* Ethernet */
