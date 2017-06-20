@@ -128,7 +128,7 @@ static int gem_is_gigabit_capable(struct macb_device *macb)
 
 static void macb_mdio_write(struct macb_device *macb, u8 reg, u16 value)
 {
-#if false
+#ifndef CONFIG_MACB_NEDAP
 	unsigned long netctl;
 	unsigned long netstat;
 	unsigned long frame;
@@ -157,7 +157,7 @@ static void macb_mdio_write(struct macb_device *macb, u8 reg, u16 value)
 
 static u16 macb_mdio_read(struct macb_device *macb, u8 reg)
 {
-#if false
+#ifndef CONFIG_MACB_NEDAP
 	unsigned long netctl;
 	unsigned long netstat;
 	unsigned long frame;

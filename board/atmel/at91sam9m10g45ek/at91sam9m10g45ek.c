@@ -152,13 +152,13 @@ static void at91sam9m10g45ek_usb_hw_init(void)
 #ifdef CONFIG_MACB
 static void at91sam9m10g45ek_macb_hw_init(void)
 {
-#if false
+#ifndef CONFIG_MACB_NEDAP
 	struct at91_port *pioa = (struct at91_port *)ATMEL_BASE_PIOA;
 #endif
 
 	at91_periph_clk_enable(ATMEL_ID_EMAC);
 
-#if false
+#ifndef CONFIG_MACB_NEDAP
 	/*
 	 * Disable pull-up on:
 	 *      RXDV (PA15) => PHY normal mode (not Test mode)
