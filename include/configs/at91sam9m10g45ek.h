@@ -205,6 +205,10 @@
 #define CONFIG_SYS_MCKR			0x1301
 #define CONFIG_SYS_MCKR_CSS		0x1302
 
+/* hardware watchdog config */
+#define CONFIG_AT91SAM9_WATCHDOG  1
+#define CONFIG_HW_WATCHDOG        1
+
 #endif
 
 #define CONFIG_CMD_RC4
