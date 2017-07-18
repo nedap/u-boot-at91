@@ -283,4 +283,8 @@
 #define CONFIG_SYS_FPGA_DOUT_PIN  AT91_PIO_PORTC, 16
 #define CONFIG_FPGA_BAUDRATE      115200
 
+/* hardware watchdog config */
+#define CONFIG_AT91SAM9_WATCHDOG  1
+#define CONFIG_HW_WATCHDOG        1
+
 #endif
