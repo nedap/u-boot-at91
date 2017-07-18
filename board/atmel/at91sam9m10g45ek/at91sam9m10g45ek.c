@@ -277,7 +277,7 @@ void lcd_show_board_info(void)
 		dram_size += gd->bd->bi_dram[i].size;
 	nand_size = 0;
 	for (i = 0; i < CONFIG_SYS_MAX_NAND_DEVICE; i++)
-		nand_size += nand_info[i]->size;
+		nand_size += nand_info[i].size;
 	lcd_printf ("  %ld MB SDRAM, %ld MB NAND\n",
 		dram_size >> 20,
 		nand_size >> 20 );
@@ -285,20 +285,12 @@ void lcd_show_board_info(void)
 #endif /* CONFIG_LCD_INFO */
 #endif
 
-#ifdef CONFIG_DEBUG_UART_BOARD_INIT
-void board_debug_uart_init(void)
+#ifdef CONFIG_GENERIC_ATMEL_MCI
+int board_mmc_init(bd_t *bis)
 {
-	at91_seriald_hw_init();
-}
-#endif
+	at91_mci_hw_init();
 
-#ifdef CONFIG_BOARD_EARLY_INIT_F
-int board_early_init_f(void)
-{
-#ifdef CONFIG_DEBUG_UART
-	debug_uart_init();
-#endif
-	return 0;
+	return atmel_mci_init((void *)ATMEL_BASE_MCI0);
 }
 #endif
 
@@ -455,6 +447,7 @@ xilinx_desc spartan3 = {
 	588877,				// XILINX_XC3S1400A_SIZE
 	(void *) &fpga_fns,
 	0,
+	&spartan3_op
 };
 
 static void nedap9g45_fpga_hw_init(void)
