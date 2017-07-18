@@ -143,7 +143,7 @@
 #define CONFIG_CMD_MTDPARTS
 #define CONFIG_LZO
 #define MTDIDS_DEFAULT			"nand0=atmel_nand"
-#define MTDPARTS_DEFAULT		"mtdparts=atmel_nand:128K(bootstrap)ro,256K(u-boot-env),640K(u-boot)ro,6M(kernel)ro,-(rootfs)"
+#define MTDPARTS_DEFAULT		"mtdparts=atmel_nand:128K(bootstrap)ro,256K(u-boot-env),640K(u-boot)ro,-(rootfs)"
 #define CONFIG_EXTRA_ENV_SETTINGS	\
 	"mtdids="MTDIDS_DEFAULT"\0"	\
 	"mtdparts="MTDPARTS_DEFAULT"\0"
