@@ -286,5 +286,6 @@
 /* hardware watchdog config */
 #define CONFIG_AT91SAM9_WATCHDOG  1
 #define CONFIG_HW_WATCHDOG        1
+#define CONFIG_AT91_HW_WDT_TIMEOUT 15
 
 #endif
