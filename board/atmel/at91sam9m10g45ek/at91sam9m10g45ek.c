@@ -317,7 +317,8 @@ xilinx_spartan3_slave_serial_fns fpga_fns = {
 	fpga_done_fn,
 	fpga_dout_fn,
 	0,
-	fpga_fastwr_fn
+	fpga_fastwr_fn,
+	0
 };
 
 xilinx_desc spartan3 = {
