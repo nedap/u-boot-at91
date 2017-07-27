@@ -483,3 +483,100 @@ int serial2_init(void)
 	return 0;
 }
 #endif /* CONFIG_CMD_FPGA */
+
+int board_early_init_f(void)
+{
+	at91_seriald_hw_init();
+	return 0;
+}
+
+int board_init(void)
+{
+	/* arch number of AT91SAM9M10G45EK-Board */
+#ifdef CONFIG_AT91SAM9M10G45EK
+	gd->bd->bi_arch_number = MACH_TYPE_AT91SAM9M10G45EK;
+#elif defined CONFIG_AT91SAM9G45EKES
+	gd->bd->bi_arch_number = MACH_TYPE_AT91SAM9G45EKES;
+#endif
+
+	/* adress of boot parameters */
+	gd->bd->bi_boot_params = CONFIG_SYS_SDRAM_BASE + 0x100;
+
+#ifdef CONFIG_CMD_NAND
+	at91sam9m10g45ek_nand_hw_init();
+#endif
+#ifdef CONFIG_CMD_USB
+	at91sam9m10g45ek_usb_hw_init();
+#endif
+#ifdef CONFIG_HAS_DATAFLASH
+	at91_spi0_hw_init(1 << 0);
+#endif
+#ifdef CONFIG_ATMEL_SPI
+	at91_spi1_hw_init(1 << 2 | 1 << 3);
+#endif
+#ifdef CONFIG_MACB
+	at91sam9m10g45ek_macb_hw_init();
+#endif
+#ifdef CONFIG_LCD
+	at91sam9m10g45ek_lcd_hw_init();
+#endif
+#ifdef CONFIG_CMD_FPGA
+	serial2_init();
+	nedap9g45_fpga_hw_init();
+#endif
+	return 0;
+}
+
+int dram_init(void)
+{
+	gd->ram_size = get_ram_size((void *) CONFIG_SYS_SDRAM_BASE,
+				    CONFIG_SYS_SDRAM_SIZE);
+	return 0;
+}
+
+#ifdef CONFIG_RESET_PHY_R
+void reset_phy(void)
+{
+}
+#endif
+
+int board_eth_init(bd_t *bis)
+{
+	int rc = 0;
+#ifdef CONFIG_MACB
+	rc = macb_eth_initialize(0, (void *)ATMEL_BASE_EMAC, 0x00);
+#endif
+	return rc;
+}
+
+void enable_caches(void)
+{
+#ifndef CONFIG_SYS_ICACHE_OFF
+	icache_enable();
+#endif
+#ifndef CONFIG_SYS_DCACHE_OFF
+	dcache_enable();
+#endif
+}
+
+/* SPI chip select control */
+#ifdef CONFIG_ATMEL_SPI
+#include <spi.h>
+
+int spi_cs_is_valid(unsigned int bus, unsigned int cs)
+{
+	return bus == 1 && (cs == 2 || cs == 3);
+}
+
+void spi_cs_activate(struct spi_slave *slave)
+{
+	if (slave->cs == 2) at91_set_gpio_output(AT91_PIN_PD18, 0);
+	else at91_set_gpio_output(AT91_PIN_PD19, 0);
+}
+
+void spi_cs_deactivate(struct spi_slave *slave)
+{
+	if (slave->cs == 2) at91_set_gpio_output(AT91_PIN_PD18, 1);
+	else at91_set_gpio_output(AT91_PIN_PD19, 1);
+}
+#endif /* CONFIG_ATMEL_SPI */
