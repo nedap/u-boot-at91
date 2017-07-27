@@ -471,6 +471,16 @@ int board_eth_init(bd_t *bis)
 	return rc;
 }
 
+void enable_caches(void)
+{
+#ifndef CONFIG_SYS_ICACHE_OFF
+	icache_enable();
+#endif
+#ifndef CONFIG_SYS_DCACHE_OFF
+	dcache_enable();
+#endif
+}
+
 /* SPI chip select control */
 #ifdef CONFIG_ATMEL_SPI
 #include <spi.h>
