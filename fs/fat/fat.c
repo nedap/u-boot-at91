@@ -1181,6 +1181,7 @@ rootdir_done:
 				     isdir ? 0 : dols) == NULL) {
 			if (dols && !isdir)
 				*size = 0;
+			ret = 0;
 			goto exit;
 		}
 
