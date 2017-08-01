@@ -465,6 +465,12 @@ int ubi_resize_volume(struct ubi_volume_desc *desc, int reserved_pebs)
 
 	/* Reserve physical eraseblocks */
 	pebs = reserved_pebs - vol->reserved_pebs;
+
+	printf("Old PEBS: %d\n", vol->reserved_pebs);
+	printf("New PEBS: %d\n", reserved_pebs);
+	printf("delta: %d\n", reserved_pebs - vol->reserved_pebs);
+	printf("Available PEBS: %d\n", ubi->avail_pebs);
+
 	if (pebs > 0) {
 		spin_lock(&ubi->volumes_lock);
 		if (pebs > ubi->avail_pebs) {

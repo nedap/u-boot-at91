@@ -261,6 +261,50 @@ out_err:
 	return err;
 }
 
+static int ubi_resize_vol(char *volume, int64_t size)
+{
+	int err, old_reserved_pebs;
+	struct ubi_volume *vol;
+	struct ubi_volume_desc desc;
+
+	vol = ubi_find_volume(volume);
+
+	if (vol == NULL) {
+		return ENODEV;
+	}
+
+	old_reserved_pebs = vol->reserved_pebs;
+
+	if (ubi->ro_mode) {
+		printf("It's read-only mode\n");
+		err = EROFS;
+		goto out_err;
+	}
+
+	if (ubi->avail_pebs == 0) {
+		printf("Warning: No PEBS available for resizing\n");
+		/* err = ENOMEM; */
+		/* goto out_err; */
+	}
+
+	desc.vol = vol;
+	err = ubi_resize_volume(&desc, size);
+	if (err) {
+		printf("Resizing failed");
+		goto out_err;
+	}
+
+	return 0;
+
+out_err:
+
+	ubi_err(ubi, "cannot resize volume %s, error %d", volume, err);
+	printf("The error code is %d\n", err);
+	if (err < 0)
+		err = -err;
+	return err;
+}
+
 static int ubi_volume_continue_write(char *volume, void *buf, size_t size)
 {
 	int err = 1;
@@ -598,6 +642,14 @@ static int do_ubi(cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[])
 			return ubi_remove_vol(argv[2]);
 	}
 
+	if (strncmp(argv[1], "resize", 6) == 0) {
+		/* E.g., resize volume */
+		if (argc == 4) {
+			size = simple_strtoull(argv[3], NULL, 16);
+			return ubi_resize_vol(argv[2], size);
+		}
+	}
+
 	if (strncmp(argv[1], "write", 5) == 0) {
 		int ret;
 
@@ -678,6 +730,8 @@ U_BOOT_CMD(
 		" - Read volume to address with size\n"
 	"ubi remove[vol] volume"
 		" - Remove volume\n"
+	"ubi resize[vol] volume size"
+	    " - Resize volume\n"
 	"[Legends]\n"
 	" volume: character name\n"
 	" size: specified in bytes\n"
