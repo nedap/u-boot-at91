@@ -366,7 +366,12 @@ static int setup_dest_addr(void)
 #endif
 	gd->ram_top += get_effective_memsize();
 	gd->ram_top = board_get_usable_ram_top(gd->mon_len);
+#ifdef CONFIG_SYS_MALLOC_ADDR
+	gd->relocaddr = CONFIG_SYS_MALLOC_ADDR;
+#else
 	gd->relocaddr = gd->ram_top;
+#endif
+
 	debug("Ram top: %08lX\n", (ulong)gd->ram_top);
 #if defined(CONFIG_MP) && (defined(CONFIG_MPC86xx) || defined(CONFIG_E500))
 	/*

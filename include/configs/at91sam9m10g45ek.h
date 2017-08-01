@@ -13,7 +13,7 @@
 
 #include <asm/hardware.h>
 
-#define CONFIG_SYS_TEXT_BASE		0x73f00000
+#define CONFIG_SYS_TEXT_BASE		0x77F00000
 
 #define CONFIG_ATMEL_LEGACY		/* required until (g)pio is fixed */
 
@@ -63,7 +63,7 @@
 #define CONFIG_SYS_SDRAM_SIZE		0x08000000
 
 #define CONFIG_SYS_INIT_SP_ADDR \
-	(CONFIG_SYS_SDRAM_BASE + 16 * 1024 - GENERATED_GBL_DATA_SIZE)
+	(CONFIG_SYS_SDRAM_BASE + CONFIG_SYS_SDRAM_SIZE - GENERATED_GBL_DATA_SIZE)
 
 /* NAND flash */
 #ifdef CONFIG_CMD_NAND
@@ -158,6 +158,7 @@
  * Size of malloc() pool
  */
 #define CONFIG_SYS_MALLOC_LEN		(8 * 1024 * 1024)	/* 8 MiB for malloc() */
+#define CONFIG_SYS_MALLOC_ADDR		(CONFIG_SYS_TEXT_BASE - CONFIG_SYS_MALLOC_LEN)
 
 /* Defines for SPL */
 #define CONFIG_SPL_FRAMEWORK
