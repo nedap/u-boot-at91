@@ -15,7 +15,11 @@
 #include <asm/arch/at91_common.h>
 #include <asm/arch/gpio.h>
 #include <asm/arch/clk.h>
+
+#ifdef CONFIG_LCD
 #include <lcd.h>
+#endif
+
 #include <linux/mtd/nand.h>
 #include <atmel_lcdc.h>
 
