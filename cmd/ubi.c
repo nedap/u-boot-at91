@@ -13,6 +13,7 @@
 
 #include <common.h>
 #include <command.h>
+#include <div64.h>
 #include <env.h>
 #include <exports.h>
 #include <malloc.h>
@@ -315,6 +316,54 @@ out_err:
 		err = -err;
 	return err;
 }
+
+#if IS_ENABLED(CONFIG_CMD_UBI_RESIZE)
+static int ubi_resize_vol(char *volume, int64_t size)
+{
+	struct ubi_volume_desc desc;
+	struct ubi_volume *vol;
+	int reserved_pebs;
+	int err;
+
+	vol = ubi_find_volume(volume);
+	if (!vol)
+		return ENODEV;
+
+	if (ubi->ro_mode) {
+		printf("It's read-only mode\n");
+		err = EROFS;
+		goto out_err;
+	}
+
+	if (size) {
+		reserved_pebs = div_u64(size + vol->usable_leb_size - 1,
+					vol->usable_leb_size);
+	} else {
+		reserved_pebs = ubi->avail_pebs + vol->reserved_pebs;
+		printf("No size specified -> Using max size (%lld)\n",
+		       (int64_t)reserved_pebs * vol->usable_leb_size);
+	}
+
+	printf("Resize UBI volume %s to %lld bytes (%d LEBs)\n", vol->name,
+	       (int64_t)reserved_pebs * vol->usable_leb_size, reserved_pebs);
+
+	desc.vol = vol;
+	desc.mode = 0;
+	err = ubi_resize_volume(&desc, reserved_pebs);
+	if (err) {
+		printf("Resizing failed\n");
+		goto out_err;
+	}
+
+	return 0;
+
+out_err:
+	ubi_err(ubi, "cannot resize volume %s, error %d", volume, err);
+	if (err < 0)
+		err = -err;
+	return err;
+}
+#endif
 
 static int ubi_rename_vol(char *oldname, char *newname)
 {
@@ -727,6 +776,16 @@ static int do_ubi(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
 			return ubi_remove_vol(argv[2]);
 	}
 
+	if (IS_ENABLED(CONFIG_CMD_UBI_RESIZE) &&
+	    strncmp(argv[1], "resize", 6) == 0) {
+		/* E.g., resize volume size */
+		if (argc == 4)
+			size = simple_strtoull(argv[3], NULL, 16);
+		/* E.g., resize volume to maximum available size */
+		if (argc == 3 || argc == 4)
+			return ubi_resize_vol(argv[2], size);
+	}
+
 	if (IS_ENABLED(CONFIG_CMD_UBI_RENAME) && !strncmp(argv[1], "rename", 6))
 		return ubi_rename_vol(argv[2], argv[3]);
 
@@ -823,6 +882,10 @@ U_BOOT_CMD(
 		" - Read volume to address with size\n"
 	"ubi remove[vol] volume"
 		" - Remove volume\n"
+#if IS_ENABLED(CONFIG_CMD_UBI_RESIZE)
+	"ubi resize[vol] volume [size]"
+		" - Resize volume\n"
+#endif
 #if IS_ENABLED(CONFIG_CMD_UBI_RENAME)
 	"ubi rename oldname newname\n"
 #endif
