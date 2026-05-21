@@ -1,0 +1,7 @@
+NEDAP9G45 BOARD
+M:	Jaap de Jong <jaap.dejong@nedap.com>
+S:	Maintained
+F:	arch/arm/dts/nedap9g45.dts
+F:	board/nedap/nedap9g45/
+F:	include/configs/nedap9g45.h
+F:	configs/nedap9g45_nandflash_defconfig

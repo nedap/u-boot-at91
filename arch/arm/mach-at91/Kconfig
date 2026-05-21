@@ -130,6 +130,13 @@ config TARGET_AT91SAM9M10G45EK
 	select BOARD_EARLY_INIT_F
 	select SUPPORT_SPL
 
+config TARGET_NEDAP9G45
+	bool "Nedap Renos AT91SAM9G45 board"
+	select AT91SAM9M10G45
+	select AT91_WANTS_COMMON_PHY
+	select BOARD_EARLY_INIT_F
+	select SUPPORT_SPL
+
 config TARGET_PM9G45
 	bool "Ronetix pm9g45 board"
 	select AT91SAM9G45
@@ -409,6 +416,7 @@ source "board/atmel/at91sam9260ek/Kconfig"
 source "board/atmel/at91sam9261ek/Kconfig"
 source "board/atmel/at91sam9263ek/Kconfig"
 source "board/atmel/at91sam9m10g45ek/Kconfig"
+source "board/nedap/nedap9g45/Kconfig"
 source "board/atmel/at91sam9n12ek/Kconfig"
 source "board/atmel/at91sam9rlek/Kconfig"
 source "board/atmel/at91sam9x5ek/Kconfig"

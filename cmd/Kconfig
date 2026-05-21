@@ -756,6 +756,12 @@ config CMD_CRC32
 	help
 	  Compute CRC32.
 
+config CMD_RC4
+	bool "rc4"
+	help
+	  Encrypt or decrypt a memory range with the legacy Renos RC4 stream
+	  cipher key.
+
 config CRC32_VERIFY
 	bool "crc32 -v"
 	depends on CMD_CRC32
