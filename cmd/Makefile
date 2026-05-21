@@ -51,6 +51,7 @@ obj-$(CONFIG_CMD_CONFIG) += config.o
 obj-$(CONFIG_CMD_CONITRACE) += conitrace.o
 obj-$(CONFIG_CMD_CONSOLE) += console.o
 obj-$(CONFIG_CMD_CPU) += cpu.o
+obj-$(CONFIG_CMD_RC4) += rc4.o
 obj-$(CONFIG_CMD_DATE) += date.o
 obj-$(CONFIG_CMD_DEMO) += demo.o
 obj-$(CONFIG_CMD_DM) += dm.o
