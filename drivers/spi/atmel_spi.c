@@ -129,10 +129,16 @@ static int atmel_spi_claim_bus(struct udevice *dev)
 	u32 cs = slave_plat->cs;
 	u32 freq = priv->freq;
 	u32 scbr, csrx, mode;
+	u32 dlybct = 0;
 
 	scbr = (priv->bus_clk_rate + freq - 1) / freq;
-	if (scbr > ATMEL_SPI_CSRx_SCBR_MAX)
-		return -EINVAL;
+	if (scbr > ATMEL_SPI_CSRx_SCBR_MAX) {
+		dlybct = scbr >> 5;
+		scbr = ATMEL_SPI_CSRx_SCBR_MAX;
+
+		if (dlybct >= BIT(8))
+			return -EINVAL;
+	}
 
 	if (scbr < 1)
 		scbr = 1;
@@ -144,6 +150,7 @@ static int atmel_spi_claim_bus(struct udevice *dev)
 		csrx |= ATMEL_SPI_CSRx_NCPHA;
 	if (priv->mode & SPI_CPOL)
 		csrx |= ATMEL_SPI_CSRx_CPOL;
+	csrx |= ATMEL_SPI_CSRx_DLYBCT(dlybct);
 
 	writel(csrx, &reg_base->csr[cs]);
 

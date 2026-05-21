@@ -1595,6 +1595,11 @@ config DEFAULT_SPI_BUS
 	depends on CMD_SPI
 	default 0
 
+config DEFAULT_SPI_SPEED
+	int "default spi speed used by sspi command"
+	depends on CMD_SPI
+	default 1000000
+
 config DEFAULT_SPI_MODE
 	hex "default spi mode used by sspi command (see include/spi.h)"
 	depends on CMD_SPI
