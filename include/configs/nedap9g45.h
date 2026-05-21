@@ -51,4 +51,12 @@
 	"mtdparts=mtdparts=atmel_nand:128K(bootstrap)ro,256K(u-boot-env)," \
 		"640K(u-boot)ro,-(rootfs)\0"
 
+/* FPGA configuration */
+#define CFG_SYS_FPGA_PROGB_PIN		AT91_PIO_PORTC, 18
+#define CFG_SYS_FPGA_CLK_PIN		AT91_PIO_PORTC, 17
+#define CFG_SYS_FPGA_INITB_PIN		AT91_PIO_PORTC, 19
+#define CFG_SYS_FPGA_DONE_PIN		AT91_PIO_PORTC, 20
+#define CFG_SYS_FPGA_DOUT_PIN		AT91_PIO_PORTC, 16
+#define CFG_FPGA_BAUDRATE		115200
+
 #endif
