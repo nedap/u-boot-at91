@@ -96,7 +96,7 @@ void board_init_r(gd_t *gd, ulong dest_addr)
 {
 	bd_t *bd;
 
-	bd = (bd_t *)(gd + sizeof(gd_t));
+	bd = (bd_t *)(gd + 1);
 	memset(bd, 0, sizeof(bd_t));
 	gd->bd = bd;
 	bd->bi_memstart = CONFIG_SYS_INIT_L3_ADDR;

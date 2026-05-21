@@ -84,10 +84,10 @@ struct uniphier_pinctrl_socdata {
 	{								\
 		.name = #grp,						\
 		.pins = grp##_pins,					\
-		.num_pins = ARRAY_SIZE(grp##_pins),			\
-		.muxvals = grp##_muxvals +				\
+		.num_pins = ARRAY_SIZE(grp##_pins) +			\
 			BUILD_BUG_ON_ZERO(ARRAY_SIZE(grp##_pins) !=	\
 					  ARRAY_SIZE(grp##_muxvals)),	\
+		.muxvals = grp##_muxvals,				\
 	}
 
 /**

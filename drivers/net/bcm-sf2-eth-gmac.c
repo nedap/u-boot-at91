@@ -187,8 +187,7 @@ static int dma_tx_init(struct eth_dma *dma)
 	descp = dma->tx_desc_aligned;
 	bufp = dma->tx_buf;
 	flush_dcache_range((unsigned long)descp,
-			   (unsigned long)(descp +
-					   sizeof(dma64dd_t) * TX_BUF_NUM));
+			   (unsigned long)(descp + TX_BUF_NUM));
 	flush_dcache_range((unsigned long)(bufp),
 			   (unsigned long)(bufp + TX_BUF_SIZE * TX_BUF_NUM));
 
@@ -240,8 +239,7 @@ static int dma_rx_init(struct eth_dma *dma)
 	bufp = dma->rx_buf;
 	/* flush descriptor and buffer */
 	flush_dcache_range((unsigned long)descp,
-			   (unsigned long)(descp +
-					   sizeof(dma64dd_t) * RX_BUF_NUM));
+			   (unsigned long)(descp + RX_BUF_NUM));
 	flush_dcache_range((unsigned long)(bufp),
 			   (unsigned long)(bufp + RX_BUF_SIZE * RX_BUF_NUM));
 
@@ -349,7 +347,7 @@ int gmac_tx_packet(struct eth_dma *dma, void *packet, int length)
 
 	/* flush descriptor and buffer */
 	flush_dcache_range((unsigned long)descp,
-			   (unsigned long)(descp + sizeof(dma64dd_t)));
+			   (unsigned long)(descp + 1));
 	flush_dcache_range((unsigned long)bufp,
 			   (unsigned long)(bufp + TX_BUF_SIZE));
 
@@ -431,7 +429,7 @@ int gmac_check_rx_done(struct eth_dma *dma, uint8_t *buf)
 	descp = (dma64dd_t *)(dma->rx_desc_aligned) + index;
 	/* flush descriptor and buffer */
 	flush_dcache_range((unsigned long)descp,
-			   (unsigned long)(descp + sizeof(dma64dd_t)));
+			   (unsigned long)(descp + 1));
 	flush_dcache_range((unsigned long)bufp,
 			   (unsigned long)(bufp + RX_BUF_SIZE));
 
@@ -462,7 +460,7 @@ int gmac_check_rx_done(struct eth_dma *dma, uint8_t *buf)
 	descp->addrhigh = 0;
 	/* flush descriptor */
 	flush_dcache_range((unsigned long)descp,
-			   (unsigned long)(descp + sizeof(dma64dd_t)));
+			   (unsigned long)(descp + 1));
 
 	/* set the lastdscr for the rx ring */
 	writel(((uint32_t)descp) & D64_XP_LD_MASK, GMAC0_DMA_RX_PTR_ADDR);
