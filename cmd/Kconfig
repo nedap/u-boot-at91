@@ -1137,6 +1137,15 @@ config CMD_FPGA
 	help
 	  FPGA support.
 
+config CMD_NEDAP_FPGA
+	bool "Nedap FPGA helper commands"
+	depends on CMD_FPGA && TARGET_NEDAP9G45
+	default y
+	help
+	  Nedap Renos FPGA helper commands used by the historical boot
+	  environment around fpga load: fpgatst, fpgaw, fpgaser,
+	  fpgagetser and fpgaset.
+
 config CMD_FPGA_LOADBP
 	bool "fpga loadbp - load partial bitstream (Xilinx only)"
 	depends on CMD_FPGA
