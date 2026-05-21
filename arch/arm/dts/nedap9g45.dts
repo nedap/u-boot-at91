@@ -14,6 +14,11 @@
 	model = "Nedap Renos AT91SAM9G45";
 	compatible = "nedap,nedap9g45", "atmel,at91sam9m10g45ek", "atmel,at91sam9g45", "atmel,at91sam9";
 
+	aliases {
+		spi0 = &spi0;
+		spi1 = &spi1;
+	};
+
 	chosen {
 		bootargs = "panic=1 quiet mtdparts=atmel_nand:128K(bootstrap)ro,256K(u-boot-env),640K(u-boot)ro,-(rootfs) root=ubi0 rw ubi.mtd=4,512 rootfstype=ubifs";
 		stdout-path = "serial0:115200n8";
@@ -156,16 +161,20 @@
 							 AT91_PIOD 31 AT91_PERIPH_B AT91_PINCTRL_PULL_UP>;	/* PD31 periph B */
 					};
 				};
+
+				spi1 {
+					pinctrl_board_spi1_cs: spi1-cs {
+						atmel,pins =
+							<AT91_PIOD 18 AT91_PERIPH_GPIO AT91_PINCTRL_PULL_UP	/* PD18 gpio SPI1 CS2 */
+							 AT91_PIOD 19 AT91_PERIPH_GPIO AT91_PINCTRL_PULL_UP>;	/* PD19 gpio SPI1 CS3 */
+					};
+				};
 			};
 
-			spi0: spi@fffa4000{
+			spi1: spi@fffa8000 {
+				pinctrl-0 = <&pinctrl_spi1 &pinctrl_board_spi1_cs>;
 				status = "okay";
-				cs-gpios = <&pioB 3 0>, <0>, <0>, <0>;
-				mtd_dataflash@0 {
-					compatible = "atmel,at45", "atmel,dataflash";
-					spi-max-frequency = <13000000>;
-					reg = <0>;
-				};
+				cs-gpios = <0>, <0>, <&pioD 18 0>, <&pioD 19 0>;
 			};
 
 			usb2: gadget@fff78000 {
