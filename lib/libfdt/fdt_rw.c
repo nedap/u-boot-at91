@@ -58,9 +58,13 @@ static int _fdt_splice(void *fdt, void *splicepoint, int oldlen, int newlen)
 	char *p = splicepoint;
 	char *end = (char *)fdt + _fdt_data_size(fdt);
 
-	if (((p + oldlen) < p) || ((p + oldlen) > end))
+	if (oldlen < 0 || newlen < 0)
 		return -FDT_ERR_BADOFFSET;
-	if ((end - oldlen + newlen) > ((char *)fdt + fdt_totalsize(fdt)))
+	if (p < (char *)fdt || p > end)
+		return -FDT_ERR_BADOFFSET;
+	if (end - p < oldlen)
+		return -FDT_ERR_BADOFFSET;
+	if (_fdt_data_size(fdt) - oldlen + newlen > fdt_totalsize(fdt))
 		return -FDT_ERR_NOSPACE;
 	memmove(p + newlen, p + oldlen, end - p - oldlen);
 	return 0;

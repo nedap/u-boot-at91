@@ -420,7 +420,7 @@ get_long_file_name(fsdata *mydata, int curclust, __u8 *cluster,
 		dir_curclust = curclust;
 
 		if (get_cluster(mydata, curclust, get_contents_vfatname_block,
-				mydata->clust_size * mydata->sect_size) != 0) {
+				fat_cluster_size(mydata)) != 0) {
 			debug("Error: reading directory block\n");
 			return -1;
 		}
@@ -463,7 +463,7 @@ get_long_file_name(fsdata *mydata, int curclust, __u8 *cluster,
 
 	if (slotptr2) {
 		memcpy(get_dentfromdir_block, get_contents_vfatname_block,
-			mydata->clust_size * mydata->sect_size);
+			fat_cluster_size(mydata));
 		cur_position = (__u8 *)realdent - get_contents_vfatname_block;
 		*retdent = (dir_entry *) &get_dentfromdir_block[cur_position];
 	}
@@ -644,7 +644,7 @@ static void flush_dir_table(fsdata *mydata, dir_entry **dentptr)
 
 	if (set_cluster(mydata, dir_curclust,
 		    get_dentfromdir_block,
-		    mydata->clust_size * mydata->sect_size) != 0) {
+		    fat_cluster_size(mydata)) != 0) {
 		printf("error: wrinting directory entry\n");
 		return;
 	}
@@ -661,7 +661,7 @@ static void flush_dir_table(fsdata *mydata, dir_entry **dentptr)
 		return;
 
 	memset(get_dentfromdir_block, 0x00,
-		mydata->clust_size * mydata->sect_size);
+		fat_cluster_size(mydata));
 
 	*dentptr = (dir_entry *) get_dentfromdir_block;
 }
@@ -704,7 +704,7 @@ set_contents(fsdata *mydata, dir_entry *dentptr, __u8 *buffer,
 	      loff_t maxsize, loff_t *gotsize)
 {
 	loff_t filesize = FAT2CPU32(dentptr->size);
-	unsigned int bytesperclust = mydata->clust_size * mydata->sect_size;
+	unsigned long bytesperclust = fat_cluster_size(mydata);
 	__u32 curclust = START(dentptr);
 	__u32 endclust = 0, newclust = 0;
 	loff_t actsize;
@@ -840,7 +840,7 @@ static int is_next_clust(fsdata *mydata, dir_entry *dentptr)
 
 	cur_position = (__u8 *)dentptr - get_dentfromdir_block;
 
-	if (cur_position >= mydata->clust_size * mydata->sect_size)
+	if (cur_position >= fat_cluster_size(mydata))
 		return 1;
 	else
 		return 0;
@@ -865,7 +865,7 @@ static dir_entry *find_directory_entry(fsdata *mydata, int startsect,
 		int i;
 
 		if (get_cluster(mydata, curclust, get_dentfromdir_block,
-			    mydata->clust_size * mydata->sect_size) != 0) {
+			    fat_cluster_size(mydata)) != 0) {
 			printf("Error: reading directory block\n");
 			return NULL;
 		}
@@ -1132,7 +1132,7 @@ static int do_fat_write(const char *filename, void *buffer, loff_t size,
 
 	/* Write directory table to device */
 	ret = set_cluster(mydata, dir_curclust, get_dentfromdir_block,
-			mydata->clust_size * mydata->sect_size);
+			fat_cluster_size(mydata));
 	if (ret)
 		printf("Error: writing directory entry\n");
 

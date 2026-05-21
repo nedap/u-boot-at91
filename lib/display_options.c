@@ -174,7 +174,7 @@ int print_buffer(ulong addr, const void *data, uint width, uint count,
 		printf("    %s\n", lb.uc);
 
 		/* update references */
-		addr += thislinelen * width;
+		addr += (ulong)thislinelen * width;
 		count -= thislinelen;
 
 		if (ctrlc())

@@ -250,7 +250,7 @@ long long ubifs_calc_available(const struct ubifs_info *c, int min_idx_lebs)
 	 */
 	if (c->lst.idx_lebs > min_idx_lebs) {
 		subtract_lebs = c->lst.idx_lebs - min_idx_lebs;
-		available -= subtract_lebs * c->dark_wm;
+		available -= (long long)subtract_lebs * c->dark_wm;
 	}
 
 	/* The calculations are rough and may end up with a negative number */
@@ -700,7 +700,7 @@ long long ubifs_get_free_space_nolock(struct ubifs_info *c)
 	lebs = c->lst.empty_lebs + c->freeable_cnt + c->idx_gc_cnt -
 	       c->lst.taken_empty_lebs;
 	lebs -= rsvd_idx_lebs;
-	available += lebs * (c->dark_wm - c->leb_overhead);
+	available += (long long)lebs * (c->dark_wm - c->leb_overhead);
 
 	if (available > outstanding)
 		free = ubifs_reported_space(c, available - outstanding);

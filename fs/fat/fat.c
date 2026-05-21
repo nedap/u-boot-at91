@@ -300,6 +300,12 @@ get_cluster(fsdata *mydata, __u32 clustnum, __u8 *buffer, unsigned long size)
 	return 0;
 }
 
+static unsigned long fat_cluster_size(const fsdata *mydata)
+{
+	return (unsigned long)mydata->clust_size *
+	       (unsigned long)mydata->sect_size;
+}
+
 /*
  * Read at most 'maxsize' bytes from 'pos' in the file associated with 'dentptr'
  * into 'buffer'.
@@ -312,7 +318,7 @@ static int get_contents(fsdata *mydata, dir_entry *dentptr, loff_t pos,
 			__u8 *buffer, loff_t maxsize, loff_t *gotsize)
 {
 	loff_t filesize = FAT2CPU32(dentptr->size);
-	unsigned int bytesperclust = mydata->clust_size * mydata->sect_size;
+	unsigned long bytesperclust = fat_cluster_size(mydata);
 	__u32 curclust = START(dentptr);
 	__u32 endclust, newclust;
 	loff_t actsize;
@@ -494,7 +500,7 @@ get_vfatname(fsdata *mydata, int curclust, __u8 *cluster,
 		}
 
 		if (get_cluster(mydata, curclust, get_contents_vfatname_block,
-				mydata->clust_size * mydata->sect_size) != 0) {
+				fat_cluster_size(mydata)) != 0) {
 			debug("Error: reading directory block\n");
 			return -1;
 		}
@@ -576,7 +582,7 @@ static dir_entry *get_dentfromdir(fsdata *mydata, int startsect,
 		int i;
 
 		if (get_cluster(mydata, curclust, get_dentfromdir_block,
-				mydata->clust_size * mydata->sect_size) != 0) {
+				fat_cluster_size(mydata)) != 0) {
 			debug("Error: reading directory block\n");
 			return NULL;
 		}

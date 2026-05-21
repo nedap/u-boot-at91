@@ -95,9 +95,9 @@ int zzip(void *dst, unsigned long *lenp, unsigned char *src,
 				goto bail;
 			}
 			if (!func) {
-				dst += (left_len - s.avail_out);
-				*lenp -= (left_len - s.avail_out);
-			} else if (left_len - s.avail_out > 0) {
+				dst += left_len - s.avail_out;
+				*lenp -= left_len - s.avail_out;
+			} else if (left_len > s.avail_out) {
 				r = func((unsigned long)dst,
 					left_len - s.avail_out);
 				if (r < 0)

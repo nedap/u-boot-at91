@@ -931,7 +931,7 @@ int ubi_scan_fastmap(struct ubi_device *ubi, struct ubi_attach_info *ai,
 		goto free_fm_sb;
 	}
 
-	fm_size = ubi->leb_size * used_blocks;
+	fm_size = (size_t)ubi->leb_size * used_blocks;
 	if (fm_size != ubi->fm_size) {
 		ubi_err(ubi, "bad fastmap size: %zi, expected: %zi",
 			fm_size, ubi->fm_size);
