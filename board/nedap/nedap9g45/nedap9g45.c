@@ -148,6 +148,28 @@ static void nedap9g45_usb_hw_init(void)
 
 	at91_set_gpio_output(AT91_PIN_PD1, 0);
 	at91_set_gpio_output(AT91_PIN_PD3, 0);
+
+	/*
+	 * Raise the USB host clocks imperatively, exactly like the non-DM
+	 * usb_cpu_init() did on the 2016 port: UPLL on, UPLL/10 as the USB
+	 * clock source, UHP peripheral and system clocks enabled.
+	 *
+	 * The DM OHCI probe path expects the device tree clock chain
+	 * (utmi -> usb -> uhpck) to bring up the 48 MHz USB host clock, but
+	 * the at91sam9g45 legacy DT parents (main, plla) carry at91rm9200
+	 * compatibles that drivers/clk/at91/compat.c does not bind, so
+	 * clk_set_rate()/clk_enable() on uhpck can never reach the hardware
+	 * and ohci-at91 ignores those errors and touches the unclocked OHCI
+	 * block, stalling the bus until the watchdog resets the SoC. With
+	 * the clocks raised here the OHCI block is fully clocked before the
+	 * DM probe touches its registers.
+	 */
+	if (at91_upll_clk_enable())
+		return;
+
+	at91_usb_clk_init(AT91_PMC_USBS_USB_UPLL | AT91_PMC_USBDIV_10);
+	at91_periph_clk_enable(ATMEL_ID_UHP);
+	at91_system_clk_enable(ATMEL_PMC_UHP);
 }
 #endif
 
