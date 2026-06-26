@@ -121,7 +121,8 @@ static struct environment environment = {
 };
 
 static int have_redund_env;
-static int fw_env_open_selected(struct env_opts *opts, int use_fallback);
+static int fw_env_open_selected(struct env_opts *opts, int use_fallback,
+				int metadata_only);
 
 #define DEFAULT_ENV_INSTANCE_STATIC
 #include <env_default.h>
@@ -531,11 +532,16 @@ int fw_printenv_ext(int argc, char *argv[], int value_only,
 			"## Error: `-n'/`--noheader' option requires exactly one argument\n");
 		return -1;
 	}
+	if (print_used && print_offset) {
+		fprintf(stderr,
+			"## Error: `-u'/`--used' and `-o'/`--offset' cannot be used together\n");
+		return -1;
+	}
 
 	if (!opts)
 		opts = &default_opts;
 
-	if (fw_env_open_selected(opts, use_fallback))
+	if (fw_env_open_selected(opts, use_fallback, print_offset))
 		return -1;
 
 	if (print_used) {
@@ -1513,7 +1519,8 @@ static int flash_io(int mode, void *buf, size_t count)
 /*
  * Prevent confusion if running from erased flash memory
  */
-static int fw_env_open_selected(struct env_opts *opts, int use_fallback)
+static int fw_env_open_selected(struct env_opts *opts, int use_fallback,
+				int metadata_only)
 {
 	int crc0, crc0_ok;
 	unsigned char flag0;
@@ -1565,7 +1572,8 @@ static int fw_env_open_selected(struct env_opts *opts, int use_fallback)
 			       sizeof(default_environment));
 			environment.dirty = 1;
 		}
-		if (!fw_env_data_end(single->data, single->data + ENV_SIZE,
+		if (!metadata_only &&
+		    !fw_env_data_end(single->data, single->data + ENV_SIZE,
 				     "environment")) {
 			ret = -EINVAL;
 			goto open_cleanup;
@@ -1683,31 +1691,34 @@ static int fw_env_open_selected(struct env_opts *opts, int use_fallback)
 		 * more, if we are writing, we will re-calculate CRC and update
 		 * flags before writing out
 		 */
-		if (use_fallback) {
-			dev_current = !dev_current;
-			if ((dev_current && !crc1_ok) ||
-			    (!dev_current && !crc0_ok)) {
-				fprintf(stderr,
-					"## Error: fallback environment has bad CRC\n");
-				ret = -EINVAL;
-				goto open_cleanup;
+			if (use_fallback) {
+				dev_current = !dev_current;
+				if (!metadata_only &&
+				    ((dev_current && !crc1_ok) ||
+				     (!dev_current && !crc0_ok))) {
+					fprintf(stderr,
+						"## Error: fallback environment has bad CRC\n");
+					ret = -EINVAL;
+					goto open_cleanup;
+				}
 			}
-		}
-		if (dev_current) {
-			if (!fw_env_data_end(redundant1->data,
-					     redundant1->data + ENV_SIZE,
-					     "environment")) {
-				ret = -EINVAL;
-				goto open_cleanup;
+			if (!metadata_only) {
+				if (dev_current) {
+					if (!fw_env_data_end(redundant1->data,
+							     redundant1->data + ENV_SIZE,
+							     "environment")) {
+						ret = -EINVAL;
+						goto open_cleanup;
+					}
+				} else {
+					if (!fw_env_data_end(redundant0->data,
+							     redundant0->data + ENV_SIZE,
+							     "environment")) {
+						ret = -EINVAL;
+						goto open_cleanup;
+					}
+				}
 			}
-		} else {
-			if (!fw_env_data_end(redundant0->data,
-					     redundant0->data + ENV_SIZE,
-					     "environment")) {
-				ret = -EINVAL;
-				goto open_cleanup;
-			}
-		}
 
 		if (dev_current) {
 			environment.image = buf1;
@@ -1737,7 +1748,7 @@ static int fw_env_open_selected(struct env_opts *opts, int use_fallback)
 
 int fw_env_open(struct env_opts *opts)
 {
-	return fw_env_open_selected(opts, 0);
+	return fw_env_open_selected(opts, 0, 0);
 }
 
 /*
