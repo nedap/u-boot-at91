@@ -52,3 +52,14 @@
 	"ip=${ipaddr}:${serverip}:${gatewayip}:${netmask}:${hostname}::off; "\
 	"bootm"
 #endif
+
+struct env_opts;
+
+struct fw_printenv_opts {
+	int use_fallback;
+	int print_used;
+	int print_offset;
+};
+
+int fw_printenv_ext(int argc, char *argv[], int value_only,
+		    struct env_opts *opts, const struct fw_printenv_opts *print_opts);
