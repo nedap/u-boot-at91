@@ -1691,34 +1691,34 @@ static int fw_env_open_selected(struct env_opts *opts, int use_fallback,
 		 * more, if we are writing, we will re-calculate CRC and update
 		 * flags before writing out
 		 */
-			if (use_fallback) {
-				dev_current = !dev_current;
-				if (!metadata_only &&
-				    ((dev_current && !crc1_ok) ||
-				     (!dev_current && !crc0_ok))) {
-					fprintf(stderr,
-						"## Error: fallback environment has bad CRC\n");
+		if (use_fallback) {
+			dev_current = !dev_current;
+			if (!metadata_only &&
+			    ((dev_current && !crc1_ok) ||
+			     (!dev_current && !crc0_ok))) {
+				fprintf(stderr,
+					"## Error: fallback environment has bad CRC\n");
+				ret = -EINVAL;
+				goto open_cleanup;
+			}
+		}
+		if (!metadata_only) {
+			if (dev_current) {
+				if (!fw_env_data_end(redundant1->data,
+						     redundant1->data + ENV_SIZE,
+						     "environment")) {
+					ret = -EINVAL;
+					goto open_cleanup;
+				}
+			} else {
+				if (!fw_env_data_end(redundant0->data,
+						     redundant0->data + ENV_SIZE,
+						     "environment")) {
 					ret = -EINVAL;
 					goto open_cleanup;
 				}
 			}
-			if (!metadata_only) {
-				if (dev_current) {
-					if (!fw_env_data_end(redundant1->data,
-							     redundant1->data + ENV_SIZE,
-							     "environment")) {
-						ret = -EINVAL;
-						goto open_cleanup;
-					}
-				} else {
-					if (!fw_env_data_end(redundant0->data,
-							     redundant0->data + ENV_SIZE,
-							     "environment")) {
-						ret = -EINVAL;
-						goto open_cleanup;
-					}
-				}
-			}
+		}
 
 		if (dev_current) {
 			environment.image = buf1;

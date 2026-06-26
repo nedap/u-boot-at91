@@ -212,6 +212,17 @@ assert_eq()
 	test "${got}" = "${want}" || fail "${name}: expected '${want}', got '${got}'"
 }
 
+assert_cmd_eq()
+{
+	name="$1"
+	want="$2"
+	shift 2
+	if ! got="$("$@")"; then
+		fail "${name}: command failed"
+	fi
+	assert_eq "${name}" "${want}" "${got}"
+}
+
 single_config="${WORK}/single.config"
 setenv_config="${WORK}/setenv.config"
 redundant_config="${WORK}/redundant.config"
@@ -226,23 +237,23 @@ fw_setenv="${WORK}/fw_setenv"
 
 ln -sf "${FW_PRINTENV}" "${fw_setenv}"
 
-assert_eq "single variable" "bootcmd=run single" \
-	"$(fw "${single_config}" bootcmd)"
-assert_eq "single value only" "abc def" \
-	"$(fw "${single_config}" -n longvar)"
-assert_eq "single used bytes" "$(cat "${WORK}/single.used")" \
-	"$(fw "${single_config}" -u "")"
-assert_eq "single offset" "0" \
-	"$(fw "${single_config}" -o)"
+assert_cmd_eq "single variable" "bootcmd=run single" \
+	fw "${single_config}" bootcmd
+assert_cmd_eq "single value only" "abc def" \
+	fw "${single_config}" -n longvar
+assert_cmd_eq "single used bytes" "$(cat "${WORK}/single.used")" \
+	fw "${single_config}" -u ""
+assert_cmd_eq "single offset" "0" \
+	fw "${single_config}" -o
 
 "${fw_setenv}" -l "${WORK}" -c "${setenv_config}" newvar hello ||
 	fail "setenv create failed"
-assert_eq "setenv created variable" "newvar=hello" \
-	"$(fw "${setenv_config}" newvar)"
+assert_cmd_eq "setenv created variable" "newvar=hello" \
+	fw "${setenv_config}" newvar
 "${fw_setenv}" -l "${WORK}" -c "${setenv_config}" bootcmd "run new" ||
 	fail "setenv overwrite failed"
-assert_eq "setenv overwritten variable" "bootcmd=run new" \
-	"$(fw "${setenv_config}" bootcmd)"
+assert_cmd_eq "setenv overwritten variable" "bootcmd=run new" \
+	fw "${setenv_config}" bootcmd
 
 if fw "${single_config}" -f bootcmd >/dev/null 2>"${WORK}/single-fallback.err"; then
 	fail "single fallback unexpectedly succeeded"
@@ -251,53 +262,53 @@ grep -q "fallback environment requested without redundant environment" \
 	"${WORK}/single-fallback.err" ||
 	fail "single fallback error did not explain missing redundant environment"
 
-assert_eq "redundant active variable" "bootcmd=run active" \
-	"$(fw "${redundant_config}" bootcmd)"
-assert_eq "redundant fallback variable" "bootcmd=run fallback" \
-	"$(fw "${redundant_config}" -f bootcmd)"
-assert_eq "redundant fallback value only" "run fallback" \
-	"$(fw "${redundant_config}" -f -n bootcmd)"
-assert_eq "redundant active used bytes" "$(cat "${WORK}/active.used")" \
-	"$(fw "${redundant_config}" -u ignored)"
-assert_eq "redundant active used bytes without variable" "$(cat "${WORK}/active.used")" \
-	"$(fw "${redundant_config}" -u)"
-assert_eq "redundant fallback used bytes" "$(cat "${WORK}/fallback.used")" \
-	"$(fw "${redundant_config}" -u -f ignored)"
-assert_eq "redundant active offset" "0" \
-	"$(fw "${redundant_config}" -o)"
-assert_eq "redundant fallback offset" "8192" \
-	"$(fw "${redundant_config}" -f -o)"
-assert_eq "redundant long used bytes without variable" "$(cat "${WORK}/active.used")" \
-	"$(fw "${redundant_config}" --used)"
-assert_eq "redundant long active offset" "0" \
-	"$(fw "${redundant_config}" --offset)"
-assert_eq "redundant long fallback offset" "8192" \
-	"$(fw "${redundant_config}" --fallback --offset)"
-assert_eq "redundant long fallback value only" "run fallback" \
-	"$(fw "${redundant_config}" --fallback --noheader bootcmd)"
+assert_cmd_eq "redundant active variable" "bootcmd=run active" \
+	fw "${redundant_config}" bootcmd
+assert_cmd_eq "redundant fallback variable" "bootcmd=run fallback" \
+	fw "${redundant_config}" -f bootcmd
+assert_cmd_eq "redundant fallback value only" "run fallback" \
+	fw "${redundant_config}" -f -n bootcmd
+assert_cmd_eq "redundant active used bytes" "$(cat "${WORK}/active.used")" \
+	fw "${redundant_config}" -u ignored
+assert_cmd_eq "redundant active used bytes without variable" "$(cat "${WORK}/active.used")" \
+	fw "${redundant_config}" -u
+assert_cmd_eq "redundant fallback used bytes" "$(cat "${WORK}/fallback.used")" \
+	fw "${redundant_config}" -u -f ignored
+assert_cmd_eq "redundant active offset" "0" \
+	fw "${redundant_config}" -o
+assert_cmd_eq "redundant fallback offset" "8192" \
+	fw "${redundant_config}" -f -o
+assert_cmd_eq "redundant long used bytes without variable" "$(cat "${WORK}/active.used")" \
+	fw "${redundant_config}" --used
+assert_cmd_eq "redundant long active offset" "0" \
+	fw "${redundant_config}" --offset
+assert_cmd_eq "redundant long fallback offset" "8192" \
+	fw "${redundant_config}" --fallback --offset
+assert_cmd_eq "redundant long fallback value only" "run fallback" \
+	fw "${redundant_config}" --fallback --noheader bootcmd
 if fw "${redundant_config}" -u -o >/dev/null 2>"${WORK}/used-offset.err"; then
 	fail "combined used and offset unexpectedly succeeded"
 fi
 grep -q "cannot be used together" "${WORK}/used-offset.err" ||
 	fail "combined used and offset error did not explain invalid option mix"
 
-assert_eq "reversed active variable" "bootcmd=run slot1" \
-	"$(fw "${reversed_config}" bootcmd)"
-assert_eq "reversed fallback variable" "bootcmd=run slot0" \
-	"$(fw "${reversed_config}" -f bootcmd)"
-assert_eq "reversed active used bytes" "$(cat "${WORK}/slot1.used")" \
-	"$(fw "${reversed_config}" -u ignored)"
-assert_eq "reversed fallback used bytes" "$(cat "${WORK}/slot0.used")" \
-	"$(fw "${reversed_config}" -f -u ignored)"
-assert_eq "reversed active offset" "8192" \
-	"$(fw "${reversed_config}" -o)"
-assert_eq "reversed fallback offset" "0" \
-	"$(fw "${reversed_config}" -f -o)"
+assert_cmd_eq "reversed active variable" "bootcmd=run slot1" \
+	fw "${reversed_config}" bootcmd
+assert_cmd_eq "reversed fallback variable" "bootcmd=run slot0" \
+	fw "${reversed_config}" -f bootcmd
+assert_cmd_eq "reversed active used bytes" "$(cat "${WORK}/slot1.used")" \
+	fw "${reversed_config}" -u ignored
+assert_cmd_eq "reversed fallback used bytes" "$(cat "${WORK}/slot0.used")" \
+	fw "${reversed_config}" -f -u ignored
+assert_cmd_eq "reversed active offset" "8192" \
+	fw "${reversed_config}" -o
+assert_cmd_eq "reversed fallback offset" "0" \
+	fw "${reversed_config}" -f -o
 
-assert_eq "bad fallback active variable" "bootcmd=run active" \
-	"$(fw "${bad_fallback_config}" bootcmd)"
-assert_eq "bad fallback offset remains available" "8192" \
-	"$(fw "${bad_fallback_config}" -f -o)"
+assert_cmd_eq "bad fallback active variable" "bootcmd=run active" \
+	fw "${bad_fallback_config}" bootcmd
+assert_cmd_eq "bad fallback offset remains available" "8192" \
+	fw "${bad_fallback_config}" -f -o
 if fw "${bad_fallback_config}" -f -u -o >/dev/null 2>"${WORK}/bad-fallback-used-offset.err"; then
 	fail "bad-CRC fallback used+offset unexpectedly succeeded"
 fi
@@ -309,10 +320,10 @@ fi
 grep -q "fallback environment has bad CRC" "${WORK}/bad-fallback.err" ||
 	fail "bad-CRC fallback error did not explain fallback CRC"
 
-assert_eq "active-bad valid active variable" "bootcmd=run slot1" \
-	"$(fw "${active_bad_config}" bootcmd)"
-assert_eq "active-bad fallback offset remains available" "0" \
-	"$(fw "${active_bad_config}" -f -o)"
+assert_cmd_eq "active-bad valid active variable" "bootcmd=run slot1" \
+	fw "${active_bad_config}" bootcmd
+assert_cmd_eq "active-bad fallback offset remains available" "0" \
+	fw "${active_bad_config}" -f -o
 if fw "${active_bad_config}" -f bootcmd >/dev/null 2>"${WORK}/active-bad.err"; then
 	fail "active-bad fallback unexpectedly succeeded"
 fi
@@ -348,8 +359,8 @@ if fw "${malformed_tail_config}" bootcmd >/dev/null 2>"${WORK}/malformed-tail-lo
 fi
 grep -q "environment not terminated" "${WORK}/malformed-tail-lookup.err" ||
 	fail "malformed-tail lookup error did not explain termination"
-assert_eq "malformed-tail offset remains available" "0" \
-	"$(fw "${malformed_tail_config}" -o)"
+assert_cmd_eq "malformed-tail offset remains available" "0" \
+	fw "${malformed_tail_config}" -o
 
 if "${fw_setenv}" -l "${WORK}" -c "${malformed_tail_config}" bootcmd new \
 	>/dev/null 2>"${WORK}/malformed-tail-setenv.err"; then
