@@ -107,7 +107,7 @@ int do_spi(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
 	 * entered.
 	 */
 	if (freq == 0)
-		freq = 1000000;
+		freq = CONFIG_DEFAULT_SPI_SPEED;
 
 	if ((flag & CMD_FLAG_REPEAT) == 0)
 	{

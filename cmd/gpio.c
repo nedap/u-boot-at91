@@ -15,8 +15,15 @@
 #include <env.h>
 #endif
 #include <asm/gpio.h>
+#if defined(CONFIG_TARGET_NEDAP9G45) && defined(CONFIG_ATMEL_LEGACY)
+#include <asm/arch/at91_pio.h>
+#endif
 #include <linux/err.h>
 #include <dm/device_compat.h>
+
+#if defined(CONFIG_TARGET_NEDAP9G45) && defined(CONFIG_ATMEL_LEGACY)
+#define GPIO_AT91_COMPAT_NOMATCH	(-ENOSYS)
+#endif
 
 __weak int name_to_gpio(const char *name)
 {
@@ -32,6 +39,73 @@ enum gpio_cmd {
 	GPIOC_READ,
 #endif
 };
+
+#if defined(CONFIG_TARGET_NEDAP9G45) && defined(CONFIG_ATMEL_LEGACY)
+static int do_gpio_at91_compat(struct cmd_tbl *cmdtp, int argc,
+			       char *const argv[])
+{
+	const char *str_pin;
+	unsigned short mode;
+	unsigned short port;
+	unsigned short pin;
+	unsigned short val;
+	char *endp;
+
+	if (argc != 4)
+		return GPIO_AT91_COMPAT_NOMATCH;
+
+	if (!strcmp(argv[1], "read")) {
+		mode = 1;
+	} else if (!strcmp(argv[1], "write")) {
+		mode = 0;
+	} else {
+		return GPIO_AT91_COMPAT_NOMATCH;
+	}
+
+	str_pin = argv[2];
+	if (*str_pin == 'p')
+		str_pin++;
+
+	switch (*str_pin) {
+	case 'a':
+		port = 0;
+		break;
+	case 'b':
+		port = 1;
+		break;
+	case 'c':
+		port = 2;
+		break;
+	case 'd':
+		port = 3;
+		break;
+	case 'e':
+		port = 4;
+		break;
+	default:
+		return GPIO_AT91_COMPAT_NOMATCH;
+	}
+
+	pin = dectoul(str_pin + 1, &endp);
+	if (!*(str_pin + 1) || *endp || pin > 31)
+		return CMD_RET_USAGE;
+
+	val = dectoul(argv[3], &endp);
+	if (*endp || val > 1)
+		return CMD_RET_USAGE;
+
+	if (mode == 0) {
+		at91_set_pio_output(port, pin, val);
+		return 0;
+	}
+
+	at91_set_pio_input(port, pin, val);
+	val = at91_get_pio_value(port, pin);
+	printf("%d\n", val);
+
+	return val;
+}
+#endif
 
 #if defined(CONFIG_DM_GPIO) && !defined(gpio_status)
 
@@ -145,6 +219,12 @@ static int do_gpio(struct cmd_tbl *cmdtp, int flag, int argc,
 	int ret;
 #ifdef CONFIG_DM_GPIO
 	bool all = false;
+#endif
+
+#if defined(CONFIG_TARGET_NEDAP9G45) && defined(CONFIG_ATMEL_LEGACY)
+	ret = do_gpio_at91_compat(cmdtp, argc, argv);
+	if (ret != GPIO_AT91_COMPAT_NOMATCH)
+		return ret;
 #endif
 
 	if (argc < 2)
