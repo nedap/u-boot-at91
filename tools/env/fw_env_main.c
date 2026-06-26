@@ -49,10 +49,14 @@ static struct option long_options[] = {
 	{"noheader", no_argument, NULL, 'n'},
 	{"lock", required_argument, NULL, 'l'},
 	{"version", no_argument, NULL, 'v'},
+	{"used", no_argument, NULL, 'u'},
+	{"offset", no_argument, NULL, 'o'},
+	{"fallback", no_argument, NULL, 'f'},
 	{NULL, 0, NULL, 0}
 };
 
 static struct env_opts env_opts;
+static struct fw_printenv_opts printenv_opts;
 
 /* setenv options */
 static int noheader;
@@ -74,6 +78,9 @@ void usage_printenv(void)
 #endif
 		" -n, --noheader       do not repeat variable name in output\n"
 		" -l, --lock           lock node, default:/run\n"
+		" -u, --used           print used environment data bytes\n"
+		" -o, --offset         print selected environment offset\n"
+		" -f, --fallback       read the redundant fallback environment\n"
 		"\n");
 }
 
@@ -156,11 +163,20 @@ int parse_printenv_args(int argc, char *argv[])
 
 	parse_common_args(argc, argv);
 
-	while ((c = getopt_long(argc, argv, "a:c:ns:l:h:v", long_options, NULL))
+	while ((c = getopt_long(argc, argv, "a:c:ns:l:h:vuof", long_options, NULL))
 		!= EOF) {
 		switch (c) {
 		case 'n':
 			noheader = 1;
+			break;
+		case 'u':
+			printenv_opts.print_used = 1;
+			break;
+		case 'o':
+			printenv_opts.print_offset = 1;
+			break;
+		case 'f':
+			printenv_opts.use_fallback = 1;
 			break;
 		case 'a':
 		case 'c':
@@ -263,7 +279,8 @@ int main(int argc, char *argv[])
 	}
 
 	if (do_printenv) {
-		if (fw_printenv(argc, argv, noheader, &env_opts) != 0)
+		if (fw_printenv_ext(argc, argv, noheader, &env_opts,
+				    &printenv_opts) != 0)
 			retval = EXIT_FAILURE;
 	} else {
 		if (!script_file) {

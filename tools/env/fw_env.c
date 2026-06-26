@@ -121,6 +121,8 @@ static struct environment environment = {
 };
 
 static int have_redund_env;
+static int fw_env_open_selected(struct env_opts *opts, int use_fallback,
+				int metadata_only);
 
 #define DEFAULT_ENV_INSTANCE_STATIC
 #include <env_default.h>
@@ -393,6 +395,50 @@ static char *envmatch(char *s1, char *s2)
 	return NULL;
 }
 
+static char *fw_env_entry_end(char *env, char *end, const char *label)
+{
+	char *nxt;
+
+	if (env >= end)
+		goto unterminated;
+
+	nxt = memchr(env, '\0', end - env);
+	if (!nxt)
+		goto unterminated;
+
+	return nxt;
+
+unterminated:
+	fprintf(stderr, "## Error: %s not terminated\n", label);
+	return NULL;
+}
+
+static char *fw_env_data_end(char *data, char *end, const char *label)
+{
+	char *env, *nxt;
+
+	for (env = data; env < end && *env; env = nxt + 1) {
+		nxt = fw_env_entry_end(env, end, label);
+		if (!nxt)
+			return NULL;
+		if (nxt + 1 >= end)
+			goto unterminated;
+		if (*(nxt + 1) == '\0')
+			return nxt;
+	}
+
+	if (env < end) {
+		if (env + 1 >= end)
+			goto unterminated;
+		if (*(env + 1) == '\0')
+			return env;
+	}
+
+unterminated:
+	fprintf(stderr, "## Error: %s not terminated\n", label);
+	return NULL;
+}
+
 /**
  * Search the environment for a variable.
  * Return the value, if found, or NULL, if not found.
@@ -400,22 +446,22 @@ static char *envmatch(char *s1, char *s2)
 char *fw_getenv(char *name)
 {
 	char *env, *nxt;
+	char *end = environment.data + ENV_SIZE;
 
-	for (env = environment.data; *env; env = nxt + 1) {
+	for (env = environment.data; env < end && *env; env = nxt + 1) {
 		char *val;
 
-		for (nxt = env; *nxt; ++nxt) {
-			if (nxt >= &environment.data[ENV_SIZE]) {
-				fprintf(stderr, "## Error: "
-					"environment not terminated\n");
-				return NULL;
-			}
-		}
+		nxt = fw_env_entry_end(env, end, "environment");
+		if (!nxt)
+			return NULL;
+
 		val = envmatch(name, env);
 		if (!val)
 			continue;
 		return val;
 	}
+	if (env >= end)
+		fw_env_entry_end(env, end, "environment");
 	return NULL;
 }
 
@@ -426,60 +472,108 @@ char *fw_getenv(char *name)
 char *fw_getdefenv(char *name)
 {
 	char *env, *nxt;
+	char *end = default_environment + sizeof(default_environment);
 
-	for (env = default_environment; *env; env = nxt + 1) {
+	for (env = default_environment; env < end && *env; env = nxt + 1) {
 		char *val;
 
-		for (nxt = env; *nxt; ++nxt) {
-			if (nxt >= &default_environment[ENV_SIZE]) {
-				fprintf(stderr, "## Error: "
-					"default environment not terminated\n");
-				return NULL;
-			}
-		}
+		nxt = fw_env_entry_end(env, end, "default environment");
+		if (!nxt)
+			return NULL;
+
 		val = envmatch(name, env);
 		if (!val)
 			continue;
 		return val;
 	}
+	if (env >= end)
+		fw_env_entry_end(env, end, "default environment");
 	return NULL;
+}
+
+static int fw_printenv_used(void)
+{
+	unsigned long size = 0;
+	char *env;
+	char *end = environment.data + ENV_SIZE;
+
+	for (env = environment.data; env < end && *env;) {
+		char *nxt = fw_env_entry_end(env, end, "environment");
+
+		if (!nxt)
+			return -1;
+
+		size += nxt - env + 1;
+		env = nxt + 1;
+	}
+	if (env >= end) {
+		fw_env_entry_end(env, end, "environment");
+		return -1;
+	}
+
+	printf("%lu\n", size);
+	return 0;
 }
 
 /*
  * Print the current definition of one, or more, or all
  * environment variables
  */
-int fw_printenv(int argc, char *argv[], int value_only, struct env_opts *opts)
+int fw_printenv_ext(int argc, char *argv[], int value_only,
+		    struct env_opts *opts, const struct fw_printenv_opts *print_opts)
 {
 	int i, rc = 0;
+	int print_used = print_opts && print_opts->print_used;
+	int print_offset = print_opts && print_opts->print_offset;
+	int use_fallback = print_opts && print_opts->use_fallback;
 
-	if (value_only && argc != 1) {
+	if (value_only && argc != 1 && !print_used && !print_offset) {
 		fprintf(stderr,
 			"## Error: `-n'/`--noheader' option requires exactly one argument\n");
+		return -1;
+	}
+	if (print_used && print_offset) {
+		fprintf(stderr,
+			"## Error: `-u'/`--used' and `-o'/`--offset' cannot be used together\n");
 		return -1;
 	}
 
 	if (!opts)
 		opts = &default_opts;
 
-	if (fw_env_open(opts))
+	if (fw_env_open_selected(opts, use_fallback, print_offset))
 		return -1;
+
+	if (print_used) {
+		rc = fw_printenv_used();
+		fw_env_close(opts);
+		return rc;
+	}
+
+	if (print_offset) {
+		printf("%lld\n", DEVOFFSET(dev_current));
+		fw_env_close(opts);
+		return 0;
+	}
 
 	if (argc == 0) {	/* Print all env variables  */
 		char *env, *nxt;
-		for (env = environment.data; *env; env = nxt + 1) {
-			for (nxt = env; *nxt; ++nxt) {
-				if (nxt >= &environment.data[ENV_SIZE]) {
-					fprintf(stderr, "## Error: "
-						"environment not terminated\n");
-					return -1;
-				}
-			}
+		char *end = environment.data + ENV_SIZE;
 
+		for (env = environment.data; env < end && *env; env = nxt + 1) {
+			nxt = fw_env_entry_end(env, end, "environment");
+			if (!nxt) {
+				rc = -1;
+				break;
+			}
 			printf("%s\n", env);
 		}
+		if (env >= end) {
+			fw_env_entry_end(env, end, "environment");
+			rc = -1;
+		}
 		fw_env_close(opts);
-		return 0;
+		return rc;
 	}
 
 	for (i = 0; i < argc; ++i) {	/* print a subset of env variables */
@@ -504,6 +598,11 @@ int fw_printenv(int argc, char *argv[], int value_only, struct env_opts *opts)
 	fw_env_close(opts);
 
 	return rc;
+}
+
+int fw_printenv(int argc, char *argv[], int value_only, struct env_opts *opts)
+{
+	return fw_printenv_ext(argc, argv, value_only, opts, NULL);
 }
 
 int fw_env_flush(struct env_opts *opts)
@@ -537,24 +636,27 @@ int fw_env_write(char *name, char *value)
 {
 	int len;
 	char *env, *nxt;
+	char *end = environment.data + ENV_SIZE;
 	char *oldval = NULL;
 	int deleting, creating, overwriting;
 
 	/*
 	 * search if variable with this name already exists
 	 */
-	for (nxt = env = environment.data; *env; env = nxt + 1) {
-		for (nxt = env; *nxt; ++nxt) {
-			if (nxt >= &environment.data[ENV_SIZE]) {
-				fprintf(stderr, "## Error: "
-					"environment not terminated\n");
-				errno = EINVAL;
-				return -1;
-			}
+	for (nxt = env = environment.data; env < end && *env; env = nxt + 1) {
+		nxt = fw_env_entry_end(env, end, "environment");
+		if (!nxt) {
+			errno = EINVAL;
+			return -1;
 		}
 		oldval = envmatch(name, env);
 		if (oldval)
 			break;
+	}
+	if (env >= end) {
+		fw_env_entry_end(env, end, "environment");
+		errno = EINVAL;
+		return -1;
 	}
 
 	deleting = (oldval && !(value && strlen(value)));
@@ -622,8 +724,11 @@ int fw_env_write(char *name, char *value)
 	/*
 	 * Append new definition at the end
 	 */
-	for (env = environment.data; *env || *(env + 1); ++env)
-		;
+	env = fw_env_data_end(environment.data, end, "environment");
+	if (!env) {
+		errno = EINVAL;
+		return -1;
+	}
 	if (env > environment.data)
 		++env;
 	/*
@@ -715,9 +820,14 @@ int fw_env_set(int argc, char *argv[], struct env_opts *opts)
 		value[len++] = '\0';
 	}
 
-	fw_env_write(name, value);
+	ret = fw_env_write(name, value);
 
 	free(value);
+
+	if (ret) {
+		fw_env_close(opts);
+		return ret;
+	}
 
 	ret = fw_env_flush(opts);
 	fw_env_close(opts);
@@ -1409,7 +1519,8 @@ static int flash_io(int mode, void *buf, size_t count)
 /*
  * Prevent confusion if running from erased flash memory
  */
-int fw_env_open(struct env_opts *opts)
+static int fw_env_open_selected(struct env_opts *opts, int use_fallback,
+				int metadata_only)
 {
 	int crc0, crc0_ok;
 	unsigned char flag0;
@@ -1445,6 +1556,13 @@ int fw_env_open(struct env_opts *opts)
 	if (!have_redund_env) {
 		struct env_image_single *single = buf0;
 
+		if (use_fallback) {
+			fprintf(stderr,
+				"## Error: fallback environment requested without redundant environment\n");
+			ret = -EINVAL;
+			goto open_cleanup;
+		}
+
 		crc0 = crc32(0, (uint8_t *)single->data, ENV_SIZE);
 		crc0_ok = (crc0 == single->crc);
 		if (!crc0_ok) {
@@ -1453,6 +1571,12 @@ int fw_env_open(struct env_opts *opts)
 			memcpy(single->data, default_environment,
 			       sizeof(default_environment));
 			environment.dirty = 1;
+		}
+		if (!metadata_only &&
+		    !fw_env_data_end(single->data, single->data + ENV_SIZE,
+				     "environment")) {
+			ret = -EINVAL;
+			goto open_cleanup;
 		}
 
 		environment.image = buf0;
@@ -1567,6 +1691,35 @@ int fw_env_open(struct env_opts *opts)
 		 * more, if we are writing, we will re-calculate CRC and update
 		 * flags before writing out
 		 */
+		if (use_fallback) {
+			dev_current = !dev_current;
+			if (!metadata_only &&
+			    ((dev_current && !crc1_ok) ||
+			     (!dev_current && !crc0_ok))) {
+				fprintf(stderr,
+					"## Error: fallback environment has bad CRC\n");
+				ret = -EINVAL;
+				goto open_cleanup;
+			}
+		}
+		if (!metadata_only) {
+			if (dev_current) {
+				if (!fw_env_data_end(redundant1->data,
+						     redundant1->data + ENV_SIZE,
+						     "environment")) {
+					ret = -EINVAL;
+					goto open_cleanup;
+				}
+			} else {
+				if (!fw_env_data_end(redundant0->data,
+						     redundant0->data + ENV_SIZE,
+						     "environment")) {
+					ret = -EINVAL;
+					goto open_cleanup;
+				}
+			}
+		}
+
 		if (dev_current) {
 			environment.image = buf1;
 			environment.crc = &redundant1->crc;
@@ -1591,6 +1744,11 @@ int fw_env_open(struct env_opts *opts)
 	free(buf1);
 
 	return ret;
+}
+
+int fw_env_open(struct env_opts *opts)
+{
+	return fw_env_open_selected(opts, 0, 0);
 }
 
 /*
