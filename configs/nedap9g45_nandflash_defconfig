@@ -25,6 +25,7 @@ CONFIG_USE_BOOTCOMMAND=y
 CONFIG_BOOTCOMMAND="ubi part rootfs && ubifsmount ubi0:nedap9g45-rootfs && ubifsload 72000000 /boot/uImage && setenv bootargs panic=1 quiet ${mtdparts} root=ubi0:nedap9g45-rootfs rw ubi.mtd=3,512 rootfstype=ubifs && bootm 72000000"
 CONFIG_SUPPORT_PASSING_ATAGS=y
 CONFIG_CMDLINE_TAG=y
+CONFIG_INITRD_TAG=y
 CONFIG_SYS_CBSIZE=2048
 CONFIG_SYS_PBSIZE=2083
 CONFIG_SYS_CONSOLE_IS_IN_ENV=y
