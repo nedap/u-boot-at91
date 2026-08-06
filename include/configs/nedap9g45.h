@@ -46,11 +46,6 @@
 #define CFG_SYS_MCKR			0x1301
 #define CFG_SYS_MCKR_CSS		0x1302
 
-#define CFG_EXTRA_ENV_SETTINGS \
-	"mtdids=nand0=atmel_nand\0" \
-	"mtdparts=mtdparts=atmel_nand:128K(bootstrap)ro,256K(u-boot-env)," \
-		"640K(u-boot)ro,-(rootfs)\0"
-
 /* FPGA configuration */
 #define CFG_SYS_FPGA_PROGB_PIN		AT91_PIO_PORTC, 18
 #define CFG_SYS_FPGA_CLK_PIN		AT91_PIO_PORTC, 17
