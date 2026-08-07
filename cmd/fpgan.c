@@ -48,15 +48,23 @@ static int fpga_puts(const char *s, char *r, int length)
 	}
 }
 
+/*
+ * Drain whatever the FPGA is still sending, up to a 20 ms gap. The absolute
+ * bound and the schedule() matter because the serial recovery runs this
+ * unattended at boot: a design that never stops transmitting would otherwise
+ * spin here past the 15 s watchdog and reset the unit every boot.
+ */
 static void fpga_flush_rx(void)
 {
-	unsigned long last_rx = get_timer(0);
+	unsigned long start = get_timer(0);
+	unsigned long last_rx = start;
 
-	while (get_timer(last_rx) < 20) {
+	while (get_timer(last_rx) < 20 && get_timer(start) < 500) {
 		if (usart2_readl(CSR) & USART2_BIT(RXRDY)) {
 			usart2_readl(RHR);
 			last_rx = get_timer(0);
 		}
+		schedule();
 	}
 }
 
@@ -243,6 +251,14 @@ static int fpga_verify_serial(const char *serial)
 	return 1;
 }
 
+/*
+ * f10 plus fifteen continuations reads sixteen pairs, so a complete answer is
+ * always FPGA_SERIAL_CHARS long. Nothing shorter may reach the caller: serial#
+ * is write-once, and fpga_write_serial drops a trailing odd character, so a
+ * truncated candidate would be verified as one string and latched as another.
+ */
+#define FPGA_SERIAL_CHARS	32
+
 static int fpga_read_serial(char *serial, int size)
 {
 	const char read_serial[] = "f10+++++++++++++++";
@@ -287,7 +303,7 @@ static int fpga_read_serial(char *serial, int size)
 
 	serial[j] = 0;
 
-	return j == 0 ? 1 : 0;
+	return j == FPGA_SERIAL_CHARS ? 0 : 1;
 }
 
 static int cmd_fpgagetser(struct cmd_tbl *cmdtp, int flag, int argc,
