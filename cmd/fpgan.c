@@ -325,7 +325,15 @@ static int cmd_fpgagetser(struct cmd_tbl *cmdtp, int flag, int argc,
 			continue;
 		}
 
-		env_set("serial#", serial);
+		/* serial# is write-once: a unit that already has one refuses the
+		 * write, and reporting success there would let the caller's
+		 * saveenv run on a claim that never happened.
+		 */
+		if (env_set("serial#", serial) != 0) {
+			printf("ERROR: could not set serial# to %s\n", serial);
+			return 1;
+		}
+
 		printf("Recovered serial#: %s\n", serial);
 		return 0;
 	}
