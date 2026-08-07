@@ -49,10 +49,8 @@ static int fpga_puts(const char *s, char *r, int length)
 }
 
 /*
- * Drain whatever the FPGA is still sending, up to a 20 ms gap. The absolute
- * bound and the schedule() matter because the serial recovery runs this
- * unattended at boot: a design that never stops transmitting would otherwise
- * spin here past the 15 s watchdog and reset the unit every boot.
+ * Drain what the FPGA is still sending, up to a 20 ms gap. The absolute bound and
+ * the schedule() keep a design that never stops from spinning past the watchdog.
  */
 static void fpga_flush_rx(void)
 {
@@ -252,10 +250,8 @@ static int fpga_verify_serial(const char *serial)
 }
 
 /*
- * f10 plus fifteen continuations reads sixteen pairs, so a complete answer is
- * always FPGA_SERIAL_CHARS long. Nothing shorter may reach the caller: serial#
- * is write-once, and fpga_write_serial drops a trailing odd character, so a
- * truncated candidate would be verified as one string and latched as another.
+ * f10 plus fifteen continuations reads sixteen pairs, so a complete answer is always
+ * this long. A short one would be verified as one string and latched as another.
  */
 #define FPGA_SERIAL_CHARS	32
 
@@ -341,9 +337,8 @@ static int cmd_fpgagetser(struct cmd_tbl *cmdtp, int flag, int argc,
 			continue;
 		}
 
-		/* serial# is write-once: a unit that already has one refuses the
-		 * write, and reporting success there would let the caller's
-		 * saveenv run on a claim that never happened.
+		/* A unit that already has serial# refuses the write, and the caller
+		 * runs saveenv on our success.
 		 */
 		if (env_set("serial#", serial) != 0) {
 			printf("ERROR: could not set serial# to %s\n", serial);
