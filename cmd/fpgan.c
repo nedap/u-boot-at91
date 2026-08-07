@@ -243,16 +243,58 @@ static int fpga_verify_serial(const char *serial)
 	return 1;
 }
 
-static int cmd_fpgagetser(struct cmd_tbl *cmdtp, int flag, int argc,
-			  char *const argv[])
+static int fpga_read_serial(char *serial, int size)
 {
 	const char read_serial[] = "f10+++++++++++++++";
 	char rcv[64];
-	char serial[40];
+	int received;
 	int n;
 	int i;
-	int j;
-	int seen_prefix;
+	int j = 0;
+	int seen_prefix = 0;
+
+	fpga_flush_rx();
+	n = fpga_puts(read_serial, rcv, sizeof(rcv));
+	/* fpga_puts counts every character it saw but stores only what fits. */
+	received = n < (int)sizeof(rcv) ? n : (int)sizeof(rcv) - 1;
+
+	for (i = 0; i + 2 < received; ++i) {
+		if (rcv[i] == 'f' && rcv[i + 1] == '1' && rcv[i + 2] == '0') {
+			i += 3;
+			seen_prefix = 1;
+			break;
+		}
+	}
+
+	if (!seen_prefix)
+		return 1;
+
+	for (; i < received && j < size - 1; ++i) {
+		char c = rcv[i];
+
+		if ((c >= '0' && c <= '9') ||
+		    (c >= 'A' && c <= 'Z') ||
+		    (c >= 'a' && c <= 'z')) {
+			serial[j++] = c;
+			continue;
+		}
+
+		if (c == '+')
+			continue;
+		if (j > 0)
+			break;
+	}
+
+	serial[j] = 0;
+
+	return j == 0 ? 1 : 0;
+}
+
+static int cmd_fpgagetser(struct cmd_tbl *cmdtp, int flag, int argc,
+			  char *const argv[])
+{
+	char serial[40];
+	char confirm[40];
 	int attempt;
 
 	if (argc != 1)
@@ -260,42 +302,18 @@ static int cmd_fpgagetser(struct cmd_tbl *cmdtp, int flag, int argc,
 
 	mdelay(1000);
 	for (attempt = 0; attempt < 3; ++attempt) {
-		j = 0;
-		seen_prefix = 0;
-		fpga_flush_rx();
-		n = fpga_puts(read_serial, rcv, sizeof(rcv));
-		for (i = 0; i + 2 < n; ++i) {
-			if (rcv[i] == 'f' && rcv[i + 1] == '1' &&
-			    rcv[i + 2] == '0') {
-				i += 3;
-				seen_prefix = 1;
-				break;
-			}
-		}
-
-		if (!seen_prefix) {
+		if (fpga_read_serial(serial, sizeof(serial)) != 0 ||
+		    fpga_read_serial(confirm, sizeof(confirm)) != 0) {
 			mdelay(250);
 			continue;
 		}
 
-		for (; i < n && j < sizeof(serial) - 1; ++i) {
-			char c = rcv[i];
-
-			if ((c >= '0' && c <= '9') ||
-			    (c >= 'A' && c <= 'Z') ||
-			    (c >= 'a' && c <= 'z')) {
-				serial[j++] = c;
-				continue;
-			}
-
-			if (c == '+')
-				continue;
-			if (j > 0)
-				break;
-		}
-
-		serial[j] = 0;
-		if (j == 0) {
+		/* serial# is write-once, so one noisy read would latch a wrong
+		 * value for good. Two independent reads must agree first.
+		 */
+		if (strcmp(serial, confirm) != 0) {
+			if (attempt == 2)
+				printf("ERROR: serial# reads from FPGA disagree\n");
 			mdelay(250);
 			continue;
 		}
