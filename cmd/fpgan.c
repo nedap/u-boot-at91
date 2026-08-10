@@ -13,10 +13,16 @@
 #include <watchdog.h>
 #include <atmel_usart2.h>
 
+/*
+ * Returns what the caller got, so every index below it is inside the caller's buffer.
+ * Each received character extends the idle budget, so a receiver that never goes quiet
+ * is ended by the absolute deadline alone.
+ */
 static int fpga_puts(const char *s, char *r, int length)
 {
 	const long max_ratio = 7;
 	const long delay = 2500;
+	unsigned long start = get_timer(0);
 	long i = delay;
 	int len = 0;
 	char c;
@@ -29,34 +35,46 @@ static int fpga_puts(const char *s, char *r, int length)
 			usart2_writel(THR, *s++);
 
 		if (usart2_readl(CSR) & USART2_BIT(RXRDY)) {
-			len++;
 			c = usart2_readl(RHR);
 			if (!r) {
 				printf("%c", c);
+				len++;
 			} else if (length > 1) {
 				*r++ = c;
 				*r = 0;
 				length--;
+				len++;
 			}
 			i += delay;
 		} else if (i-- == 0) {
 			return len;
 		}
 
-		if ((i & 0xff) == 0)
+		if ((i & 0xff) == 0) {
 			schedule();
+			/* The longest legitimate exchange is ~50 characters. */
+			if (get_timer(start) > 1000)
+				return len;
+		}
 	}
 }
 
+/*
+ * Drain what the FPGA is still sending, up to a 20 ms gap. schedule() feeds the
+ * watchdog, so a design that never goes quiet hangs here rather than resetting the
+ * unit; the absolute bound is what ends it.
+ */
 static void fpga_flush_rx(void)
 {
-	unsigned long last_rx = get_timer(0);
+	unsigned long start = get_timer(0);
+	unsigned long last_rx = start;
 
-	while (get_timer(last_rx) < 20) {
+	while (get_timer(last_rx) < 20 && get_timer(start) < 500) {
 		if (usart2_readl(CSR) & USART2_BIT(RXRDY)) {
 			usart2_readl(RHR);
 			last_rx = get_timer(0);
 		}
+		schedule();
 	}
 }
 
@@ -243,16 +261,74 @@ static int fpga_verify_serial(const char *serial)
 	return 1;
 }
 
-static int cmd_fpgagetser(struct cmd_tbl *cmdtp, int flag, int argc,
-			  char *const argv[])
+/*
+ * f10 plus fifteen continuations reads sixteen registers, and a register value is two
+ * hex digits, so a complete answer is always this long. A short one would be verified
+ * as one string and latched as another.
+ */
+#define FPGA_SERIAL_CHARS	32
+
+static int fpga_read_serial(char *serial, int size)
 {
 	const char read_serial[] = "f10+++++++++++++++";
 	char rcv[64];
-	char serial[40];
 	int n;
 	int i;
-	int j;
-	int seen_prefix;
+	int j = 0;
+	int seen_prefix = 0;
+
+	serial[0] = 0;
+	fpga_flush_rx();
+	n = fpga_puts(read_serial, rcv, sizeof(rcv));
+
+	for (i = 0; i + 2 < n; ++i) {
+		if (rcv[i] == 'f' && rcv[i + 1] == '1' && rcv[i + 2] == '0') {
+			i += 3;
+			seen_prefix = 1;
+			break;
+		}
+	}
+
+	if (!seen_prefix)
+		return 1;
+
+	for (; i < n && j < size - 1; ++i) {
+		char c = rcv[i];
+
+		if ((c >= '0' && c <= '9') ||
+		    (c >= 'A' && c <= 'F') ||
+		    (c >= 'a' && c <= 'f')) {
+			serial[j++] = c;
+			continue;
+		}
+
+		if (c == '+')
+			continue;
+		if (j > 0)
+			break;
+	}
+
+	serial[j] = 0;
+
+	if (j != FPGA_SERIAL_CHARS)
+		return 1;
+
+	/* A dead or unprogrammed store answers with one repeated value. */
+	for (i = 1; serial[i] == serial[0]; ++i)
+		;
+
+	return serial[i] ? 0 : 1;
+}
+
+static int cmd_fpgagetser(struct cmd_tbl *cmdtp, int flag, int argc,
+			  char *const argv[])
+{
+	/* The console is the only field diagnostic, so report the last attempt's
+	 * cause once, after the loop.
+	 */
+	const char *cause = "no valid serial# in the FPGA reply";
+	char serial[40];
+	char confirm[40];
 	int attempt;
 
 	if (argc != 1)
@@ -260,59 +336,42 @@ static int cmd_fpgagetser(struct cmd_tbl *cmdtp, int flag, int argc,
 
 	mdelay(1000);
 	for (attempt = 0; attempt < 3; ++attempt) {
-		j = 0;
-		seen_prefix = 0;
-		fpga_flush_rx();
-		n = fpga_puts(read_serial, rcv, sizeof(rcv));
-		for (i = 0; i + 2 < n; ++i) {
-			if (rcv[i] == 'f' && rcv[i + 1] == '1' &&
-			    rcv[i + 2] == '0') {
-				i += 3;
-				seen_prefix = 1;
-				break;
-			}
-		}
-
-		if (!seen_prefix) {
+		if (fpga_read_serial(serial, sizeof(serial)) != 0 ||
+		    fpga_read_serial(confirm, sizeof(confirm)) != 0) {
+			cause = "no valid serial# in the FPGA reply";
 			mdelay(250);
 			continue;
 		}
 
-		for (; i < n && j < sizeof(serial) - 1; ++i) {
-			char c = rcv[i];
-
-			if ((c >= '0' && c <= '9') ||
-			    (c >= 'A' && c <= 'Z') ||
-			    (c >= 'a' && c <= 'z')) {
-				serial[j++] = c;
-				continue;
-			}
-
-			if (c == '+')
-				continue;
-			if (j > 0)
-				break;
-		}
-
-		serial[j] = 0;
-		if (j == 0) {
+		/* serial# is write-once, so one noisy read would latch a wrong
+		 * value for good. Two reads must agree first, which catches
+		 * transient noise but not a systematic misread.
+		 */
+		if (strcmp(serial, confirm) != 0) {
+			cause = "the two reads disagree";
 			mdelay(250);
 			continue;
 		}
 
 		if (fpga_verify_serial(serial) != 0) {
-			if (attempt == 2)
-				printf("ERROR: recovered serial# failed FPGA verify\n");
+			cause = "the FPGA rejected the value it just returned";
 			mdelay(250);
 			continue;
 		}
 
-		env_set("serial#", serial);
+		/* A unit that already has serial# refuses the write, and the caller
+		 * runs saveenv on our success.
+		 */
+		if (env_set("serial#", serial) != 0) {
+			printf("ERROR: could not set serial# to %s\n", serial);
+			return 1;
+		}
+
 		printf("Recovered serial#: %s\n", serial);
 		return 0;
 	}
 
-	printf("ERROR: could not read serial# from FPGA\n");
+	printf("ERROR: could not read serial# from FPGA: %s\n", cause);
 	return 1;
 }
 
