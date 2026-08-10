@@ -13,10 +13,16 @@
 #include <watchdog.h>
 #include <atmel_usart2.h>
 
+/*
+ * Returns what the caller got, so every index below it is inside the caller's buffer.
+ * Each received character extends the idle budget, so a receiver that never goes quiet
+ * is ended by the absolute deadline alone.
+ */
 static int fpga_puts(const char *s, char *r, int length)
 {
 	const long max_ratio = 7;
 	const long delay = 2500;
+	unsigned long start = get_timer(0);
 	long i = delay;
 	int len = 0;
 	char c;
@@ -29,28 +35,34 @@ static int fpga_puts(const char *s, char *r, int length)
 			usart2_writel(THR, *s++);
 
 		if (usart2_readl(CSR) & USART2_BIT(RXRDY)) {
-			len++;
 			c = usart2_readl(RHR);
 			if (!r) {
 				printf("%c", c);
+				len++;
 			} else if (length > 1) {
 				*r++ = c;
 				*r = 0;
 				length--;
+				len++;
 			}
 			i += delay;
 		} else if (i-- == 0) {
 			return len;
 		}
 
-		if ((i & 0xff) == 0)
+		if ((i & 0xff) == 0) {
 			schedule();
+			/* The longest legitimate exchange is ~50 characters. */
+			if (get_timer(start) > 1000)
+				return len;
+		}
 	}
 }
 
 /*
- * Drain what the FPGA is still sending, up to a 20 ms gap. The absolute bound and
- * the schedule() keep a design that never stops from spinning past the watchdog.
+ * Drain what the FPGA is still sending, up to a 20 ms gap. schedule() feeds the
+ * watchdog, so a design that never goes quiet hangs here rather than resetting the
+ * unit; the absolute bound is what ends it.
  */
 static void fpga_flush_rx(void)
 {
@@ -250,8 +262,9 @@ static int fpga_verify_serial(const char *serial)
 }
 
 /*
- * f10 plus fifteen continuations reads sixteen pairs, so a complete answer is always
- * this long. A short one would be verified as one string and latched as another.
+ * f10 plus fifteen continuations reads sixteen registers, and a register value is two
+ * hex digits, so a complete answer is always this long. A short one would be verified
+ * as one string and latched as another.
  */
 #define FPGA_SERIAL_CHARS	32
 
@@ -259,18 +272,16 @@ static int fpga_read_serial(char *serial, int size)
 {
 	const char read_serial[] = "f10+++++++++++++++";
 	char rcv[64];
-	int received;
 	int n;
 	int i;
 	int j = 0;
 	int seen_prefix = 0;
 
+	serial[0] = 0;
 	fpga_flush_rx();
 	n = fpga_puts(read_serial, rcv, sizeof(rcv));
-	/* fpga_puts counts every character it saw but stores only what fits. */
-	received = n < (int)sizeof(rcv) ? n : (int)sizeof(rcv) - 1;
 
-	for (i = 0; i + 2 < received; ++i) {
+	for (i = 0; i + 2 < n; ++i) {
 		if (rcv[i] == 'f' && rcv[i + 1] == '1' && rcv[i + 2] == '0') {
 			i += 3;
 			seen_prefix = 1;
@@ -281,12 +292,12 @@ static int fpga_read_serial(char *serial, int size)
 	if (!seen_prefix)
 		return 1;
 
-	for (; i < received && j < size - 1; ++i) {
+	for (; i < n && j < size - 1; ++i) {
 		char c = rcv[i];
 
 		if ((c >= '0' && c <= '9') ||
-		    (c >= 'A' && c <= 'Z') ||
-		    (c >= 'a' && c <= 'z')) {
+		    (c >= 'A' && c <= 'F') ||
+		    (c >= 'a' && c <= 'f')) {
 			serial[j++] = c;
 			continue;
 		}
@@ -299,12 +310,23 @@ static int fpga_read_serial(char *serial, int size)
 
 	serial[j] = 0;
 
-	return j == FPGA_SERIAL_CHARS ? 0 : 1;
+	if (j != FPGA_SERIAL_CHARS)
+		return 1;
+
+	/* A dead or unprogrammed store answers with one repeated value. */
+	for (i = 1; serial[i] == serial[0]; ++i)
+		;
+
+	return serial[i] ? 0 : 1;
 }
 
 static int cmd_fpgagetser(struct cmd_tbl *cmdtp, int flag, int argc,
 			  char *const argv[])
 {
+	/* The console is the only field diagnostic, so report the last attempt's
+	 * cause once, after the loop.
+	 */
+	const char *cause = "no valid serial# in the FPGA reply";
 	char serial[40];
 	char confirm[40];
 	int attempt;
@@ -316,23 +338,23 @@ static int cmd_fpgagetser(struct cmd_tbl *cmdtp, int flag, int argc,
 	for (attempt = 0; attempt < 3; ++attempt) {
 		if (fpga_read_serial(serial, sizeof(serial)) != 0 ||
 		    fpga_read_serial(confirm, sizeof(confirm)) != 0) {
+			cause = "no valid serial# in the FPGA reply";
 			mdelay(250);
 			continue;
 		}
 
 		/* serial# is write-once, so one noisy read would latch a wrong
-		 * value for good. Two independent reads must agree first.
+		 * value for good. Two reads must agree first, which catches
+		 * transient noise but not a systematic misread.
 		 */
 		if (strcmp(serial, confirm) != 0) {
-			if (attempt == 2)
-				printf("ERROR: serial# reads from FPGA disagree\n");
+			cause = "the two reads disagree";
 			mdelay(250);
 			continue;
 		}
 
 		if (fpga_verify_serial(serial) != 0) {
-			if (attempt == 2)
-				printf("ERROR: recovered serial# failed FPGA verify\n");
+			cause = "the FPGA rejected the value it just returned";
 			mdelay(250);
 			continue;
 		}
@@ -349,7 +371,7 @@ static int cmd_fpgagetser(struct cmd_tbl *cmdtp, int flag, int argc,
 		return 0;
 	}
 
-	printf("ERROR: could not read serial# from FPGA\n");
+	printf("ERROR: could not read serial# from FPGA: %s\n", cause);
 	return 1;
 }
 
