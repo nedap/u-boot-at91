@@ -264,7 +264,6 @@
 		nand0: nand@40000000 {
 			nand-bus-width = <8>;
 			nand-ecc-mode = "soft";
-			nand-on-flash-bbt;
 			status = "okay";
 
 			boot@0 {
