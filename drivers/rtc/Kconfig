@@ -47,6 +47,14 @@ config RTC_ENABLE_32KHZ_OUTPUT
 	   Some real-time clocks support the output of 32kHz square waves (such as ds3231),
 	   the config symbol choose Real Time Clock device 32Khz output feature.
 
+config RTC_AT91SAM9_RTT
+	bool "Enable AT91SAM9 Real-time Timer support"
+	depends on DM_RTC && ARCH_AT91
+	help
+	  Read and set the time through the Real-time Timer of the AT91SAM9260
+	  family. It keeps the time as the counter plus an offset in a backup
+	  register, so it stays in step with Linux's rtc-at91sam9 driver.
+
 config RTC_ARMADA38X
 	bool "Enable Armada 38x Marvell SoC RTC"
 	depends on DM_RTC && ARCH_MVEBU
