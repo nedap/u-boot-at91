@@ -362,19 +362,17 @@ static int atmel_spi_probe(struct udevice *bus)
 	struct atmel_spi_priv *priv = dev_get_priv(bus);
 	int i;
 
-	ret = gpio_request_list_by_name(bus, "cs-gpios", priv->cs_gpios,
-					ARRAY_SIZE(priv->cs_gpios), 0);
-	if (ret < 0) {
-		pr_err("Can't get %s gpios! Error: %d", bus->name, ret);
-		return ret;
-	}
-
-	for(i = 0; i < ARRAY_SIZE(priv->cs_gpios); i++) {
-		if (!dm_gpio_is_valid(&priv->cs_gpios[i]))
-			continue;
-
-		dm_gpio_set_dir_flags(&priv->cs_gpios[i],
-				      GPIOD_IS_OUT | GPIOD_IS_OUT_ACTIVE);
+	/*
+	 * The index is the chip select, so an empty entry has to skip that
+	 * select and not end the list, as gpio_request_list_by_name() does.
+	 */
+	for (i = 0; i < ARRAY_SIZE(priv->cs_gpios); i++) {
+		ret = gpio_request_by_name(bus, "cs-gpios", i, &priv->cs_gpios[i],
+					   GPIOD_IS_OUT | GPIOD_IS_OUT_ACTIVE);
+		if (ret && ret != -ENOENT) {
+			pr_err("Can't get %s gpio %d! Error: %d", bus->name, i, ret);
+			return ret;
+		}
 	}
 #endif
 
