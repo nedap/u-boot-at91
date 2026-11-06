@@ -617,8 +617,9 @@ static int do_nand(struct cmd_tbl *cmdtp, int flag, int argc,
 		printf("\nDevice %d bad blocks:\n", dev);
 		for (off = 0; off < mtd->size; off += mtd->erasesize) {
 			ret = nand_block_isbad(mtd, off);
+			/* No 0x: the production test reads these addresses. */
 			if (ret)
-				printf("  0x%08llx%s\n", (unsigned long long)off,
+				printf("  %08llx%s\n", (unsigned long long)off,
 				       ret == 2 ? "\t (bbt reserved)" : "");
 		}
 		return 0;
